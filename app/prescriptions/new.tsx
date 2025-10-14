@@ -5,7 +5,6 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } fr
 
 type ManualMed = {
   name: string;
-  dosage: string;
   times: string; // numeric string
   days: string; // numeric string
   duration: string; // numeric string
@@ -28,7 +27,7 @@ export default function NewPrescription() {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [date, setDate] = useState<string>(today);
   const [rows, setRows] = useState<ManualMed[]>([
-    { name: '', dosage: '', times: '', days: '1', duration: '', timeStr: '' },
+    { name: '', times: '', days: '1', duration: '', timeStr: '' },
   ]);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +36,7 @@ export default function NewPrescription() {
     loadUser().then((u) => { if (!u) saveUser({ name: 'User' } as UserData); });
   }, []);
 
-  const addRow = () => setRows((r) => [...r, { name: '', dosage: '', times: '', days: '1', duration: '', timeStr: '' }]);
+  const addRow = () => setRows((r) => [...r, { name: '', times: '', days: '1', duration: '', timeStr: '' }]);
   const removeRow = (idx: number) => setRows((r) => r.filter((_, i) => i !== idx));
   const updateRow = (idx: number, patch: Partial<ManualMed>) => setRows((r) => r.map((row, i) => i === idx ? { ...row, ...patch } : row));
 
@@ -51,7 +50,6 @@ export default function NewPrescription() {
     const cleaned = rows.map((r) => ({
       ...r,
       name: r.name.trim(),
-      dosage: r.dosage.trim() || '—',
       times: r.times.trim(),
       days: r.days.trim() || '1',
       duration: r.duration.trim(),
@@ -67,7 +65,6 @@ export default function NewPrescription() {
 
     const medsToAdd: Medication[] = cleaned.map((r) => ({
       name: r.name,
-      dosage: r.dosage,
       frequency: `${Number(r.times)}/${Number(r.days)}d`,
       next_dose: r.timeStr,
       status: 'upcoming',
@@ -130,10 +127,6 @@ export default function NewPrescription() {
                   <View style={styles.fieldWide}> 
                     <Text style={styles.label}>Name</Text>
                     <TextInput value={r.name} onChangeText={(v) => updateRow(idx, { name: v })} placeholder="Metformin" style={styles.input} />
-                  </View>
-                  <View style={styles.field}> 
-                    <Text style={styles.label}>Dosage</Text>
-                    <TextInput value={r.dosage} onChangeText={(v) => updateRow(idx, { dosage: v })} placeholder="500mg" style={styles.input} />
                   </View>
                 </View>
                 <View style={styles.rowWrap}>

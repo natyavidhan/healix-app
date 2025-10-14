@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Medication = {
   name: string;
-  dosage: string;
   frequency: string; // e.g., "2/day"
   next_dose: string; // e.g., "8:00 PM"
   status: 'taken' | 'upcoming';
@@ -114,8 +113,8 @@ export function getSampleUser(): UserData {
     allergies: ['Penicillin'],
     conditions: ['Diabetes'],
     medications: [
-      { name: 'Metformin', dosage: '500mg', frequency: '2/day', next_dose: '8:00 PM', status: 'upcoming' },
-      { name: 'Paracetamol', dosage: '500mg', frequency: '3/day', next_dose: '9:00 PM', status: 'upcoming' },
+      { name: 'Metformin', frequency: '2/day', next_dose: '8:00 PM', status: 'upcoming' },
+      { name: 'Paracetamol', frequency: '3/day', next_dose: '9:00 PM', status: 'upcoming' },
     ],
     prescriptions: [
       { id: 'rx-1', doctor: 'Dr. Mehta', date: '2025-10-12', medicine_count: 3 },

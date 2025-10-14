@@ -196,7 +196,7 @@ export default function Dashboard() {
                   </Pressable>
                 </View>
               </View>
-              <Text style={styles.medMeta}>{m.dosage} • {m.frequency}</Text>
+              <Text style={styles.medMeta}>{m.frequency}</Text>
               <View style={styles.nextDoseRow}>
                 <Ionicons name="time-outline" size={16} color={Pastel.grayText} />
                 <Text style={styles.nextDoseText}>Next: {m.next_dose}</Text>
@@ -322,7 +322,7 @@ export default function Dashboard() {
             {deleteIndex != null && meds[deleteIndex] ? (
               <View style={{ marginTop: 10, padding: 10, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border }}>
                 <Text style={{ color: Pastel.text, fontWeight: '700' }}>{meds[deleteIndex].name}</Text>
-                <Text style={{ color: Pastel.grayText }}>{meds[deleteIndex].dosage} • {meds[deleteIndex].frequency}</Text>
+                <Text style={{ color: Pastel.grayText }}>{meds[deleteIndex].frequency}</Text>
               </View>
             ) : null}
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
@@ -434,7 +434,6 @@ export default function Dashboard() {
 
                     const newMed: Medication = {
                       name: medName.trim(),
-                      dosage: '—',
                       frequency: `${Number(freqTimes)}/${Number(freqDays)}d`,
                       next_dose: timeStr.trim(),
                       status: 'upcoming',

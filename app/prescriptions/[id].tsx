@@ -93,7 +93,7 @@ export default function PrescriptionDetail() {
               <View style={styles.medHeader}>
                 <Text style={styles.medName}>{m.name}</Text>
               </View>
-              <Text style={styles.medMeta}>{m.dosage} • {m.frequency}</Text>
+              <Text style={styles.medMeta}>{m.frequency}</Text>
               <View style={styles.nextDoseRow}>
                 <Ionicons name="time-outline" size={16} color={Pastel.grayText} />
                 <Text style={styles.nextDoseText}>Next: {m.next_dose}</Text>

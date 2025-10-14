@@ -98,7 +98,7 @@ function generateReply(text: string, user: UserData | null): string {
   if (q.includes('med') || q.includes('medicine') || q.includes('medication')) {
     const count = user?.medications?.length ?? 0;
     return count
-      ? `You have ${count} active medication${count > 1 ? 's' : ''} listed. Remember to follow the prescribed times and dosage.`
+  ? `You have ${count} active medication${count > 1 ? 's' : ''} listed. Remember to follow the prescribed schedule.`
       : 'I don’t see any active medications yet. You can add them from the dashboard.';
   }
   if (q.includes('report') || q.includes('lab')) {
