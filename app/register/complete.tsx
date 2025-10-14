@@ -1,4 +1,5 @@
-import { getBasics, resetRegistration } from '@/lib/registration-store';
+import { getBasics, getDetails as getRegDetails, resetRegistration } from '@/lib/registration-store';
+import { calcBMI, saveUser, type UserData } from '@/lib/storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -12,9 +13,46 @@ export default function RegisterComplete() {
     if (basics) setName(basics.name);
   }, []);
 
-  const goHome = () => {
+  const goHome = async () => {
+    // Compose MVP user data from registration draft and store locally
+    const basics = getBasics();
+    const details = getRegDetails?.();
+    if (basics && details) {
+      // Compute age from DOB
+      let age: number | undefined;
+      if (details.dob) {
+        const dob = new Date(details.dob);
+        const now = new Date();
+        age = now.getFullYear() - dob.getFullYear();
+        const m = now.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+      }
+      const height = details.height_cm ? Number(details.height_cm) : undefined;
+      const weight = details.weight_kg ? Number(details.weight_kg) : undefined;
+      const bmi = calcBMI(height, weight);
+      const allergies = details.allergies ? details.allergies.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      const conditions = details.known_conditions ? details.known_conditions.split(',').map((s) => s.trim()).filter(Boolean) : [];
+
+      const user: UserData = {
+        name: basics.name,
+        age,
+        gender: details.gender ? (details.gender.charAt(0).toUpperCase() + details.gender.slice(1)) : undefined,
+        blood_group: details.blood_group || undefined,
+        height_cm: height,
+        weight_kg: weight,
+        bmi,
+        allergies,
+        conditions,
+        medications: [],
+        prescriptions: [],
+        reports: [],
+        reminders: [],
+        last_sync: new Date().toISOString(),
+      };
+      await saveUser(user);
+    }
     resetRegistration();
-    router.replace('/' as any);
+    router.replace('/dashboard' as any);
   };
 
   return (

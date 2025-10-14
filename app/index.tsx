@@ -1,9 +1,36 @@
+import { loadUser } from '@/lib/storage';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function Landing() {
   const router = useRouter();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const user = await loadUser();
+      if (!mounted) return;
+      if (user) {
+        router.replace('/dashboard' as any);
+      } else {
+        setChecking(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
+
+  if (checking) {
+    return (
+      <View style={[styles.container, { backgroundColor: '#fff' }]}> 
+        <Text style={[styles.title, { color: '#11181C' }]}>healix</Text>
+        <Text style={{ color: '#6B7280' }}>Loading…</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: '#fff' }]}>

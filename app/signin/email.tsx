@@ -15,8 +15,8 @@ export default function EmailSignIn() {
       setError('Please enter both email and password.');
       return;
     }
-    // Simulate success
-    router.replace('/');
+  // Simulate success -> go to dashboard
+  router.replace('/dashboard' as any);
   };
 
   return (
