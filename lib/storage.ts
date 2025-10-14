@@ -15,11 +15,23 @@ export type Prescription = {
   medicine_count: number;
 };
 
+export type ReportValue = {
+  name: string;
+  value: string; // e.g., "13.8"
+  unit?: string; // e.g., "g/dL"
+  ref?: string; // e.g., "13.5–17.5"
+  flag?: 'low' | 'high' | 'normal';
+};
+
 export type Report = {
   id?: string;
   name: string;
   date: string; // ISO or YYYY-MM-DD
   summary: string;
+  file_uri?: string; // local file uri from DocumentPicker
+  mime_type?: string;
+  size_bytes?: number;
+  values?: ReportValue[];
 };
 
 export type Reminder = {
@@ -109,7 +121,34 @@ export function getSampleUser(): UserData {
       { id: 'rx-1', doctor: 'Dr. Mehta', date: '2025-10-12', medicine_count: 3 },
     ],
     reports: [
-      { id: 'rep-1', name: 'Blood Test', date: '2025-10-10', summary: 'All parameters normal' },
+      {
+        id: 'rep-1',
+        name: 'Complete Blood Count (CBC)',
+        date: '2025-10-10',
+        summary: 'All parameters within normal limits.',
+        values: [
+          { name: 'Hemoglobin', value: '13.8', unit: 'g/dL', ref: '13.5–17.5', flag: 'normal' },
+          { name: 'WBC', value: '6.5', unit: 'x10^3/µL', ref: '4.0–11.0', flag: 'normal' },
+          { name: 'Platelets', value: '250', unit: 'x10^3/µL', ref: '150–400', flag: 'normal' },
+          { name: 'RBC', value: '4.9', unit: 'x10^6/µL', ref: '4.5–5.9', flag: 'normal' },
+          { name: 'MCV', value: '88', unit: 'fL', ref: '80–100', flag: 'normal' },
+          { name: 'MCH', value: '29', unit: 'pg', ref: '27–33', flag: 'normal' },
+          { name: 'MCHC', value: '33', unit: 'g/dL', ref: '32–36', flag: 'normal' },
+        ],
+      },
+      {
+        id: 'rep-2',
+        name: 'Lipid Profile',
+        date: '2025-09-22',
+        summary: 'Desirable lipid profile.',
+        values: [
+          { name: 'Total Cholesterol', value: '178', unit: 'mg/dL', ref: '< 200', flag: 'normal' },
+          { name: 'LDL-C', value: '98', unit: 'mg/dL', ref: '< 100', flag: 'normal' },
+          { name: 'HDL-C', value: '52', unit: 'mg/dL', ref: '> 40', flag: 'normal' },
+          { name: 'Triglycerides', value: '130', unit: 'mg/dL', ref: '< 150', flag: 'normal' },
+          { name: 'Chol/HDL Ratio', value: '3.4', unit: '', ref: '< 5.0', flag: 'normal' },
+        ],
+      },
     ],
     reminders: [
       { id: 'rem-1', type: 'medication', message: 'Take Paracetamol 500mg', time: '8:00 PM', done: false },

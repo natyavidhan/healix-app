@@ -46,11 +46,45 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     const u = (await loadUser()) ?? getSampleUser();
+  // make sure we have a couple of demo prescriptions if none exist
+    let enriched = { ...u } as UserData;
+    if (!enriched.prescriptions || enriched.prescriptions.length === 0) {
+      enriched = {
+        ...enriched,
+        prescriptions: [
+          { id: 'rx-1', doctor: 'Dr. Mehta', date: '2025-10-12', medicine_count: 3 },
+          { id: 'rx-2', doctor: 'Dr. Kapoor', date: '2025-09-28', medicine_count: 2 },
+        ],
+      };
+    }
+    // ensure we have 1-2 demo lab reports if none exist
+    if (!enriched.reports || enriched.reports.length === 0) {
+      enriched = {
+        ...enriched,
+        reports: [
+          {
+            id: 'rep-1', name: 'Complete Blood Count (CBC)', date: '2025-10-10', summary: 'All parameters within normal limits.',
+            values: [
+              { name: 'Hemoglobin', value: '13.8', unit: 'g/dL', ref: '13.5–17.5', flag: 'normal' },
+              { name: 'WBC', value: '6.5', unit: 'x10^3/µL', ref: '4.0–11.0', flag: 'normal' },
+              { name: 'Platelets', value: '250', unit: 'x10^3/µL', ref: '150–400', flag: 'normal' },
+            ],
+          },
+          {
+            id: 'rep-2', name: 'Lipid Profile', date: '2025-09-22', summary: 'Desirable lipid profile.',
+            values: [
+              { name: 'Total Cholesterol', value: '178', unit: 'mg/dL', ref: '< 200', flag: 'normal' },
+              { name: 'LDL-C', value: '98', unit: 'mg/dL', ref: '< 100', flag: 'normal' },
+            ],
+          },
+        ],
+      };
+    }
     // fill calculated BMI if possible
-    const bmi = calcBMI(u.height_cm, u.weight_kg);
-    const next = bmi && u.bmi !== bmi ? { ...u, bmi } : u;
+    const bmi = calcBMI(enriched.height_cm, enriched.weight_kg);
+    const next = bmi && enriched.bmi !== bmi ? { ...enriched, bmi } : enriched;
     setUser(next);
-    if (next !== u) await saveUser(next);
+    if (JSON.stringify(next) !== JSON.stringify(u)) await saveUser(next);
   }, []);
 
   useEffect(() => {
@@ -93,22 +127,6 @@ export default function Dashboard() {
     });
   };
 
-  const addMedication = () => {
-    // Dummy action: append a placeholder medication
-    const draft: Medication = {
-      name: 'Vitamin D3',
-      dosage: '1000 IU',
-      frequency: '1/day',
-      next_dose: '8:00 AM',
-      status: 'upcoming',
-    };
-    setUser((prev) => {
-      const next: UserData = { ...(prev ?? getSampleUser()) };
-      next.medications = [...(next.medications ?? []), draft];
-      saveUser(next);
-      return next;
-    });
-  };
 
   if (!user) {
     return (
@@ -217,7 +235,7 @@ export default function Dashboard() {
           <View style={styles.vList}>
             <Pressable onPress={() => router.push('/reports/new' as any)} style={({ pressed }) => [styles.listCard, styles.addFirstCard, pressed && { opacity: 0.9 }]}>
               <Text style={[styles.listTitle, { color: Pastel.blue }]}>+ Add Report</Text>
-              <Text style={styles.listSubtitle}>Upload or add a lab report</Text>
+              <Text style={styles.listSubtitle}>Upload a lab report (PDF/Image)</Text>
             </Pressable>
             {reports.map((r, i) => (
               <Pressable key={r.id ?? `rep-${i}`} onPress={() => router.push(`/reports/${r.id ?? i}` as any)} style={({ pressed }) => [styles.listCard, pressed && { opacity: 0.9 }]}>
