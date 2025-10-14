@@ -23,6 +23,7 @@ export default function RegisterDetails() {
   const router = useRouter();
   const [details, setDetailsState] = useState<RegistrationDetails>(initialDetails);
   const [error, setError] = useState<string | null>(null);
+  const [anyDropdownOpen, setAnyDropdownOpen] = useState(false);
   const now = new Date();
   const currentYear = now.getFullYear();
   const years = Array.from({ length: 120 }, (_, i) => String(currentYear - i));
@@ -76,7 +77,7 @@ export default function RegisterDetails() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} style={{ width: '100%' }}>
+      <ScrollView contentContainerStyle={styles.scrollContent} style={{ width: '100%' }} scrollEnabled={!anyDropdownOpen}>
         <View style={styles.card}>
           <Text style={styles.title}>Your details</Text>
 
@@ -84,41 +85,83 @@ export default function RegisterDetails() {
           <View style={styles.rowWrap}>
             <View style={[styles.field, { minWidth: 250 }]}> 
               <Text style={styles.label}>DOB</Text>
-              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                <Dropdown
-                  value={dobYear}
-                  onChange={(v) => setDobYear(v)}
-                  options={years.map((y) => ({ label: y, value: y }))}
-                  placeholder="Year"
-                  containerStyle={{ flexGrow: 1, flexBasis: 100 }}
-                  menuMaxHeight={200}
-                  containerStyle={{ flexGrow: 1, flexBasis: 100, zIndex: 30 }}
-                />
-                <Dropdown
-                  value={dobMonth}
-                  onChange={(v) => {
-                    setDobMonth(v);
-                    // adjust day if overflow when month changes
-                    if (dobYear && dobDay) {
-                      const max = daysInMonth(Number(dobYear), Number(v));
-                      const dayNum = Number(dobDay);
-                      if (dayNum > max) setDobDay(String(max).padStart(2, '0'));
-                    }
-                  }}
-                  options={months.map((m) => ({ label: m, value: m }))}
-                  placeholder="Month"
-                  containerStyle={{ flexGrow: 1, flexBasis: 100, zIndex: 29 }}
-                  menuMaxHeight={200}
-                />
-                <Dropdown
-                  value={dobDay}
-                  onChange={(v) => setDobDay(v)}
-                  options={days.map((d) => ({ label: d, value: d }))}
-                  placeholder="Day"
-                  containerStyle={{ flexGrow: 1, flexBasis: 100, zIndex: 28 }}
-                  menuMaxHeight={200}
-                />
-              </View>
+              {Platform.OS === 'web' ? (
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  <Dropdown
+                    value={dobYear}
+                    onChange={(v) => setDobYear(v)}
+                    options={years.map((y) => ({ label: y, value: y }))}
+                    placeholder="Year"
+                    menuMaxHeight={200}
+                    containerStyle={{ flexGrow: 1, flexBasis: 100, zIndex: 30 }}
+                    onOpenChange={setAnyDropdownOpen}
+                  />
+                  <Dropdown
+                    value={dobMonth}
+                    onChange={(v) => {
+                      setDobMonth(v);
+                      // adjust day if overflow when month changes
+                      if (dobYear && dobDay) {
+                        const max = daysInMonth(Number(dobYear), Number(v));
+                        const dayNum = Number(dobDay);
+                        if (dayNum > max) setDobDay(String(max).padStart(2, '0'));
+                      }
+                    }}
+                    options={months.map((m) => ({ label: m, value: m }))}
+                    placeholder="Month"
+                    containerStyle={{ flexGrow: 1, flexBasis: 100, zIndex: 29 }}
+                    menuMaxHeight={200}
+                    onOpenChange={setAnyDropdownOpen}
+                  />
+                  <Dropdown
+                    value={dobDay}
+                    onChange={(v) => setDobDay(v)}
+                    options={days.map((d) => ({ label: d, value: d }))}
+                    placeholder="Day"
+                    containerStyle={{ flexGrow: 1, flexBasis: 100, zIndex: 28 }}
+                    menuMaxHeight={200}
+                    onOpenChange={setAnyDropdownOpen}
+                  />
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  {/* Native platforms: use simple three dropdowns still, but Modal-backed ensures smooth scroll; keep same controls for now */}
+                  <Dropdown
+                    value={dobYear}
+                    onChange={(v) => setDobYear(v)}
+                    options={years.map((y) => ({ label: y, value: y }))}
+                    placeholder="Year"
+                    menuMaxHeight={300}
+                    containerStyle={{ flexGrow: 1, flexBasis: 100, zIndex: 30 }}
+                    onOpenChange={setAnyDropdownOpen}
+                  />
+                  <Dropdown
+                    value={dobMonth}
+                    onChange={(v) => {
+                      setDobMonth(v);
+                      if (dobYear && dobDay) {
+                        const max = daysInMonth(Number(dobYear), Number(v));
+                        const dayNum = Number(dobDay);
+                        if (dayNum > max) setDobDay(String(max).padStart(2, '0'));
+                      }
+                    }}
+                    options={months.map((m) => ({ label: m, value: m }))}
+                    placeholder="Month"
+                    containerStyle={{ flexGrow: 1, flexBasis: 100, zIndex: 29 }}
+                    menuMaxHeight={300}
+                    onOpenChange={setAnyDropdownOpen}
+                  />
+                  <Dropdown
+                    value={dobDay}
+                    onChange={(v) => setDobDay(v)}
+                    options={days.map((d) => ({ label: d, value: d }))}
+                    placeholder="Day"
+                    containerStyle={{ flexGrow: 1, flexBasis: 100, zIndex: 28 }}
+                    menuMaxHeight={300}
+                    onOpenChange={setAnyDropdownOpen}
+                  />
+                </View>
+              )}
             </View>
             <View style={styles.field}> 
               <Text style={styles.label}>Gender</Text>
@@ -132,6 +175,7 @@ export default function RegisterDetails() {
                 ]}
                 placeholder="Select gender"
                 containerStyle={{ zIndex: 20 }}
+                onOpenChange={setAnyDropdownOpen}
               />
             </View>
             <View style={styles.field}> 
@@ -145,6 +189,7 @@ export default function RegisterDetails() {
                 placeholder="Select blood group"
                 containerStyle={{ zIndex: 19 }}
                 menuMaxHeight={260}
+                onOpenChange={setAnyDropdownOpen}
               />
             </View>
           </View>
@@ -185,6 +230,7 @@ export default function RegisterDetails() {
                 options={[{label:'Yes', value:'yes'}, {label:'No', value:'no'}]}
                 placeholder="Select"
                 containerStyle={{ zIndex: 18 }}
+                onOpenChange={setAnyDropdownOpen}
               />
             </View>
             <View style={styles.field}> 
@@ -195,6 +241,7 @@ export default function RegisterDetails() {
                 options={[{label:'Yes', value:'yes'}, {label:'No', value:'no'}]}
                 placeholder="Select"
                 containerStyle={{ zIndex: 17 }}
+                onOpenChange={setAnyDropdownOpen}
               />
             </View>
             <View style={styles.field}> 
@@ -209,6 +256,7 @@ export default function RegisterDetails() {
                 ]}
                 placeholder="Select activity"
                 containerStyle={{ zIndex: 16 }}
+                onOpenChange={setAnyDropdownOpen}
               />
             </View>
             <View style={styles.field}> 
@@ -223,6 +271,7 @@ export default function RegisterDetails() {
                 ]}
                 placeholder="Select diet"
                 containerStyle={{ zIndex: 15 }}
+                onOpenChange={setAnyDropdownOpen}
               />
             </View>
           </View>
@@ -241,10 +290,11 @@ export default function RegisterDetails() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   scrollContent: { alignItems: 'center', justifyContent: 'center', padding: 24 },
-  card: { width: '100%', maxWidth: 820, backgroundColor: '#fff', borderRadius: 12, padding: 20, borderWidth: 1, borderColor: '#eee', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 1 },
+  card: { width: '100%', maxWidth: 820, backgroundColor: '#fff', borderRadius: 12, padding: 20, borderWidth: 1, borderColor: '#eee', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 1, overflow: 'visible' },
   title: { fontSize: 24, fontWeight: '700', marginBottom: 16, color: '#11181C' },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginTop: 8, marginBottom: 8, color: '#11181C' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start' },
   field: { flexGrow: 1, flexBasis: 250 },
   label: { marginBottom: 6, color: '#11181C', fontWeight: '600' },
   input: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 12, paddingVertical: Platform.OS === 'web' ? 10 : 12, fontSize: 16, backgroundColor: '#fff', color: '#11181C' },
