@@ -3,6 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { useTranslation } = require('react-i18next/dist/commonjs');
 
 const Pastel = {
   blue: '#1D8CF8',
@@ -13,6 +15,7 @@ const Pastel = {
 };
 
 export default function ReportDetail() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [user, setUser] = useState<UserData | null>(null);
@@ -61,7 +64,7 @@ export default function ReportDetail() {
   if (!user) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>Lab Report</Text>
+  <Text style={styles.title}>{t('reports.title')}</Text>
         <Text style={styles.hint}>Loading…</Text>
       </View>
     );
@@ -70,7 +73,7 @@ export default function ReportDetail() {
   if (!report) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>Lab Report</Text>
+  <Text style={styles.title}>{t('reports.title')}</Text>
         <Text style={styles.hint}>Not found.</Text>
         <Pressable style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.9 }]} onPress={() => router.replace('/dashboard' as any)}>
           <Text style={styles.primaryBtnText}>Back to Dashboard</Text>
@@ -86,27 +89,27 @@ export default function ReportDetail() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.card}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={styles.title}>Lab Report</Text>
+          <Text style={styles.title}>{t('reports.title')}</Text>
           <Pressable style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.8 }]} onPress={() => router.push('/reports/new' as any)}>
             <Ionicons name="add" size={20} color={Pastel.blue} />
           </Pressable>
         </View>
         <View style={styles.rowBetween}>
-          <Text style={styles.meta}><Text style={styles.metaLabel}>Name: </Text>{report.name}</Text>
-          <Text style={styles.meta}><Text style={styles.metaLabel}>Date: </Text>{report.date}</Text>
+          <Text style={styles.meta}><Text style={styles.metaLabel}>{t('reports.name')}: </Text>{report.name}</Text>
+          <Text style={styles.meta}><Text style={styles.metaLabel}>{t('reports.date')}: </Text>{report.date}</Text>
         </View>
         {/* Only show summary when there are no structured values */}
         {!valueRows.length ? (
-          <Text style={styles.meta}><Text style={styles.metaLabel}>Summary: </Text>{report.summary}</Text>
+          <Text style={styles.meta}><Text style={styles.metaLabel}>{t('reports.summary')}: </Text>{report.summary}</Text>
         ) : null}
       </View>
 
       {valueRows.length ? (
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Results</Text>
+          <Text style={styles.sectionTitle}>{t('reports.results')}</Text>
           <View style={styles.tableHeader2Col}>
-            <Text style={[styles.th]}>Attribute</Text>
-            <Text style={[styles.th, { textAlign: 'right' }]}>Value</Text>
+            <Text style={[styles.th]}>{t('reports.attribute')}</Text>
+            <Text style={[styles.th, { textAlign: 'right' }]}>{t('reports.value')}</Text>
           </View>
           {valueRows.map((v, idx) => (
             <View key={`${v.name}-${idx}`} style={[styles.tableRow2Col, idx % 2 === 1 && styles.tableRowAlt]}>
@@ -126,27 +129,27 @@ export default function ReportDetail() {
 
       {report.file_uri ? (
         <View>
-          <Text style={styles.sectionTitle}>Report file</Text>
+          <Text style={styles.sectionTitle}>{t('reports.reportFile')}</Text>
           {isImage ? (
             <Image source={{ uri: report.file_uri }} style={styles.imagePreview} resizeMode="contain" />
           ) : null}
           {isPdf ? (
             <Pressable onPress={() => Linking.openURL(report.file_uri!)} style={({ pressed }) => [styles.openBtn, pressed && { opacity: 0.9 }]}>
-              <Text style={styles.openBtnText}>Open PDF</Text>
+              <Text style={styles.openBtnText}>{t('common.openPdf')}</Text>
             </Pressable>
           ) : null}
           {!isImage && !isPdf ? (
             <View>
               <Text style={styles.hint}>Unsupported preview. Tap Open to view.</Text>
               <Pressable onPress={() => Linking.openURL(report.file_uri!)} style={({ pressed }) => [styles.openBtn, pressed && { opacity: 0.9 }]}>
-                <Text style={styles.openBtnText}>Open File</Text>
+                <Text style={styles.openBtnText}>{t('common.openFile')}</Text>
               </Pressable>
             </View>
           ) : null}
         </View>
       ) : (
         <View style={styles.emptyCard}>
-          <Text style={styles.hint}>No file attached for this report.</Text>
+          <Text style={styles.hint}>{t('reports.noFile')}</Text>
         </View>
       )}
       <View style={{ height: 24 }} />

@@ -3,8 +3,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { useTranslation } = require('react-i18next/dist/commonjs');
 
 export default function NewReport() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [name, setName] = useState('');
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0,10));
@@ -41,18 +44,18 @@ export default function NewReport() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Upload Lab Report</Text>
-        <Text style={styles.hint}>Only uploads are allowed for lab reports.</Text>
+        <Text style={styles.title}>{t('reports.uploadTitle')}</Text>
+        <Text style={styles.hint}>{t('reports.onlyUploads')}</Text>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Report name</Text>
+          <Text style={styles.label}>{t('reports.reportName')}</Text>
           <TextInput value={name} onChangeText={setName} placeholder="e.g., CBC (Complete Blood Count)" style={styles.input} />
           <View style={{ height: 10 }} />
-          <Text style={styles.label}>Date</Text>
+          <Text style={styles.label}>{t('reports.reportDate')}</Text>
           <TextInput value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" style={styles.input} />
 
           <Pressable onPress={pickFile} style={({ pressed }) => [styles.pickBtn, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.pickBtnText}>{picked ? 'Change file' : 'Choose file (PDF/Image)'}</Text>
+            <Text style={styles.pickBtnText}>{picked ? 'Change file' : t('common.chooseFile')}</Text>
           </Pressable>
           {picked ? (
             <View style={styles.fileRow}>
@@ -65,10 +68,10 @@ export default function NewReport() {
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text style={styles.cancelText}>{t('common.cancel')}</Text>
           </Pressable>
           <Pressable onPress={save} style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.saveText}>Save Report</Text>
+            <Text style={styles.saveText}>{t('reports.saveReport')}</Text>
           </Pressable>
         </View>
       </ScrollView>

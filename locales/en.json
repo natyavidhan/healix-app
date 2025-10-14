@@ -1,0 +1,64 @@
+{
+  "app": {
+    "title": "Healix",
+    "welcome": "Welcome to Healix",
+    "hi": "Hi"
+  },
+  "common": {
+    "add": "Add",
+    "cancel": "Cancel",
+    "save": "Save",
+    "openPdf": "Open PDF",
+    "openFile": "Open File",
+    "chooseFile": "Choose file (PDF/Image)",
+    "loading": "Loading…",
+    "notFound": "Not found.",
+    "backToDashboard": "Back to Dashboard"
+  },
+  "dashboard": {
+    "activeMeds": "Active Medications",
+    "prescriptions": "Prescriptions",
+    "labReports": "Lab Reports",
+    "addPrescription": "+ Add Prescription",
+    "addReport": "+ Add Report",
+    "addPrescriptionDesc": "Create a new prescription entry",
+    "addReportDesc": "Upload a lab report (PDF/Image)",
+    "remindersToday": "Today’s reminders",
+    "noReminders": "No reminders for today",
+    "markDone": "Mark as Done",
+    "done": "Done",
+    "syncedJustNow": "Synced just now",
+    "offlineNever": "Offline Mode: Never synced",
+    "offlineAgo": "Offline Mode: Last synced {{minutes}}m ago",
+    "logout": "Logout",
+    "details": "Health Details"
+  },
+  "reports": {
+    "title": "Lab Report",
+    "results": "Results",
+    "attribute": "Attribute",
+    "value": "Value",
+    "name": "Name",
+    "date": "Date",
+    "summary": "Summary",
+    "reportFile": "Report file",
+    "noFile": "No file attached for this report.",
+    "uploadTitle": "Upload Lab Report",
+    "onlyUploads": "Only uploads are allowed for lab reports.",
+    "reportName": "Report name",
+    "reportDate": "Date",
+    "saveReport": "Save Report"
+  },
+  "prescriptions": {
+    "title": "Prescription",
+    "medicines": "Medicines",
+    "doctor": "Doctor",
+    "totalMeds": "Total medicines"
+  },
+  "language": {
+    "english": "English",
+    "hindi": "Hindi",
+    "tamil": "Tamil",
+    "switch": "Language"
+  }
+}

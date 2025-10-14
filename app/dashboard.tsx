@@ -1,3 +1,4 @@
+import i18n from '@/lib/i18n';
 import { calcBMI, clearUser, getSampleUser, loadUser, saveUser, type Medication, type Prescription, type Reminder, type Report, type UserData } from '@/lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -5,6 +6,8 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { useTranslation } = require('react-i18next/dist/commonjs');
 
 // (removed duplicate import)
 
@@ -22,6 +25,7 @@ const Pastel = {
 };
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [user, setUser] = useState<UserData | null>(null);
   const [activeTab, setActiveTab] = useState<'prescriptions' | 'reports'>('prescriptions');
@@ -147,13 +151,23 @@ export default function Dashboard() {
         <Animated.View entering={FadeInUp.duration(400)} style={[styles.overviewCard, { backgroundColor: Pastel.cardBg }]}> 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={styles.greeting}>Hi{user.name ? `, ${user.name.split(' ')[0]}` : ''}</Text>
-              <Text style={styles.sectionSubtitle}>Welcome to Healix</Text>
+              <Text style={styles.greeting}>{t('app.hi')}{user.name ? `, ${user.name.split(' ')[0]}` : ''}</Text>
+              <Text style={styles.sectionSubtitle}>{t('app.welcome')}</Text>
             </View>
             <Pressable
               onPress={() => setDetailsVisible(true)}
               style={({ pressed }) => [styles.avatarButton, pressed && { opacity: 0.8 }]}>
               <Text style={styles.avatarText}>{user.name?.[0]?.toUpperCase() ?? 'U'}</Text>
+            </Pressable>
+            <Pressable
+                onPress={() => {
+                  const order = ['en','hi','ta'] as const;
+                  const idx = order.indexOf(i18n.language as any);
+                  const next = order[(idx + 1) % order.length];
+                  i18n.changeLanguage(next);
+                }}
+                style={({ pressed }) => [styles.langChip, { marginLeft: 12 }, pressed && { opacity: 0.85 }]}>
+                <Text style={{ color: Pastel.text, fontWeight: '700' }}>{(i18n.language || 'en').toUpperCase()}</Text>
             </Pressable>
             <Pressable
                 onPress={async () => { await clearUser(); router.replace('/' as any); }}
@@ -166,21 +180,10 @@ export default function Dashboard() {
             <View style={styles.metricActions}>
             </View>
           </View>
-
-          {(user.allergies?.length || user.conditions?.length) ? (
-            <View style={styles.pillsRow}>
-              {(user.allergies ?? []).map((a, idx) => (
-                <Pill key={`alg-${idx}`} text={`${a} Allergy`} />
-              ))}
-              {(user.conditions ?? []).map((c, idx) => (
-                <Pill key={`cond-${idx}`} text={c} />
-              ))}
-            </View>
-          ) : null}
         </Animated.View>
 
         {/* Active Medications */}
-  <SectionHeader title="Active Medications" actionLabel="Add" onAction={() => setMedModalVisible(true)} />
+  <SectionHeader title={t('dashboard.activeMeds')} actionLabel={t('common.add')} onAction={() => setMedModalVisible(true)} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScroll}>
           {meds.map((m, i) => (
             <Animated.View key={`${m.name}-${i}`} entering={FadeInUp.delay(60 * i)} style={styles.medCard}>
@@ -209,17 +212,17 @@ export default function Dashboard() {
         {/* Reports & Prescriptions */}
         <View style={styles.segmentedContainer}>
           <Pressable onPress={() => setActiveTab('prescriptions')} style={[styles.segment, activeTab === 'prescriptions' && styles.segmentActive]}>
-            <Text style={[styles.segmentText, activeTab === 'prescriptions' && styles.segmentTextActive]}>Prescriptions</Text>
+            <Text style={[styles.segmentText, activeTab === 'prescriptions' && styles.segmentTextActive]}>{t('dashboard.prescriptions')}</Text>
           </Pressable>
           <Pressable onPress={() => setActiveTab('reports')} style={[styles.segment, activeTab === 'reports' && styles.segmentActive]}>
-            <Text style={[styles.segmentText, activeTab === 'reports' && styles.segmentTextActive]}>Lab Reports</Text>
+            <Text style={[styles.segmentText, activeTab === 'reports' && styles.segmentTextActive]}>{t('dashboard.labReports')}</Text>
           </Pressable>
         </View>
         {activeTab === 'prescriptions' ? (
           <View style={styles.vList}>
             <Pressable onPress={() => router.push('/prescriptions/new' as any)} style={({ pressed }) => [styles.listCard, styles.addFirstCard, pressed && { opacity: 0.9 }]}>
-              <Text style={[styles.listTitle, { color: Pastel.blue }]}>+ Add Prescription</Text>
-              <Text style={styles.listSubtitle}>Create a new prescription entry</Text>
+              <Text style={[styles.listTitle, { color: Pastel.blue }]}>{t('dashboard.addPrescription')}</Text>
+              <Text style={styles.listSubtitle}>{t('dashboard.addPrescriptionDesc')}</Text>
             </Pressable>
             {prescriptions.map((p, i) => (
               <Pressable key={p.id ?? `rx-${i}`} onPress={() => router.push(`/prescriptions/${p.id ?? i}` as any)} style={({ pressed }) => [styles.listCard, pressed && { opacity: 0.9 }]}>
@@ -234,8 +237,8 @@ export default function Dashboard() {
         ) : (
           <View style={styles.vList}>
             <Pressable onPress={() => router.push('/reports/new' as any)} style={({ pressed }) => [styles.listCard, styles.addFirstCard, pressed && { opacity: 0.9 }]}>
-              <Text style={[styles.listTitle, { color: Pastel.blue }]}>+ Add Report</Text>
-              <Text style={styles.listSubtitle}>Upload a lab report (PDF/Image)</Text>
+              <Text style={[styles.listTitle, { color: Pastel.blue }]}>{t('dashboard.addReport')}</Text>
+              <Text style={styles.listSubtitle}>{t('dashboard.addReportDesc')}</Text>
             </Pressable>
             {reports.map((r, i) => (
               <Pressable key={r.id ?? `rep-${i}`} onPress={() => router.push(`/reports/${r.id ?? i}` as any)} style={({ pressed }) => [styles.listCard, pressed && { opacity: 0.9 }]}>
@@ -250,9 +253,9 @@ export default function Dashboard() {
         )}
 
         {/* Reminders */}
-        <Text style={styles.sectionTitle}>Today’s reminders</Text>
+  <Text style={styles.sectionTitle}>{t('dashboard.remindersToday')}</Text>
         <View style={styles.remindersPanel}>
-          {(reminders.length ? reminders : [{ id: 'none', type: 'medication', message: 'No reminders for today', time: '', done: false }]).map((r) => (
+          {(reminders.length ? reminders : [{ id: 'none', type: 'medication', message: t('dashboard.noReminders'), time: '', done: false }]).map((r) => (
             <View key={r.id} style={styles.reminderRow}>
               <View style={styles.reminderLeft}>
                 <ReminderIcon type={r.type} />
@@ -262,7 +265,7 @@ export default function Dashboard() {
               </View>
               {r.id !== 'none' ? (
                 <Pressable onPress={() => markReminderDone(r.id)} style={({ pressed }) => [styles.doneBtn, r.done && styles.doneBtnDone, pressed && { opacity: 0.85 }]}>
-                  <Text style={[styles.doneBtnText, r.done && styles.doneBtnTextDone]}>{r.done ? 'Done' : 'Mark as Done'}</Text>
+                  <Text style={[styles.doneBtnText, r.done && styles.doneBtnTextDone]}>{r.done ? t('dashboard.done') : t('dashboard.markDone')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -578,6 +581,7 @@ const styles = StyleSheet.create({
 
   // Logout chip next to avatar
   logoutChip: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: Pastel.white, borderRadius: 999, borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border },
+  langChip: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#E5E7EB', borderRadius: 999, borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border },
   logoutText: { color: '#EF4444', fontWeight: '700' },
 
   fabWrapper: { position: 'absolute', right: 16, bottom: 24 },

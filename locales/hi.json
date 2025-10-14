@@ -1,0 +1,64 @@
+{
+  "app": {
+    "title": "Healix",
+    "welcome": "हीलिक्स में आपका स्वागत है",
+    "hi": "नमस्ते"
+  },
+  "common": {
+    "add": "जोड़ें",
+    "cancel": "रद्द करें",
+    "save": "सहेजें",
+    "openPdf": "PDF खोलें",
+    "openFile": "फ़ाइल खोलें",
+    "chooseFile": "फ़ाइल चुनें (PDF/छवि)",
+    "loading": "लोड हो रहा है…",
+    "notFound": "नहीं मिला।",
+    "backToDashboard": "डैशबोर्ड पर वापस जाएँ"
+  },
+  "dashboard": {
+    "activeMeds": "सक्रिय दवाइयाँ",
+    "prescriptions": "पर्चे",
+    "labReports": "प्रयोगशाला रिपोर्ट",
+    "addPrescription": "+ पर्चा जोड़ें",
+    "addReport": "+ रिपोर्ट जोड़ें",
+    "addPrescriptionDesc": "नया पर्चा बनाएँ",
+    "addReportDesc": "लैब रिपोर्ट अपलोड करें (PDF/छवि)",
+    "remindersToday": "आज की याद दिलाने वाली बातें",
+    "noReminders": "आज कोई अनुस्मारक नहीं",
+    "markDone": "पूर्ण करें",
+    "done": "पूर्ण",
+    "syncedJustNow": "अभी सिंक किया गया",
+    "offlineNever": "ऑफलाइन मोड: कभी सिंक नहीं हुआ",
+    "offlineAgo": "ऑफलाइन मोड: अंतिम सिंक {{minutes}} मिनट पहले",
+    "logout": "लॉगआउट",
+    "details": "स्वास्थ्य विवरण"
+  },
+  "reports": {
+    "title": "लैब रिपोर्ट",
+    "results": "परिणाम",
+    "attribute": "गुण",
+    "value": "मान",
+    "name": "नाम",
+    "date": "तिथि",
+    "summary": "सारांश",
+    "reportFile": "रिपोर्ट फ़ाइल",
+    "noFile": "इस रिपोर्ट के लिए कोई फ़ाइल संलग्न नहीं है।",
+    "uploadTitle": "लैब रिपोर्ट अपलोड करें",
+    "onlyUploads": "लैब रिपोर्ट के लिए केवल अपलोड की अनुमति है।",
+    "reportName": "रिपोर्ट का नाम",
+    "reportDate": "तिथि",
+    "saveReport": "रिपोर्ट सहेजें"
+  },
+  "prescriptions": {
+    "title": "पर्चा",
+    "medicines": "दवाइयाँ",
+    "doctor": "चिकित्सक",
+    "totalMeds": "कुल दवाइयाँ"
+  },
+  "language": {
+    "english": "अंग्रेज़ी",
+    "hindi": "हिन्दी",
+    "tamil": "तमिल",
+    "switch": "भाषा"
+  }
+}
