@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
 // (removed duplicate import)
@@ -27,6 +27,15 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'prescriptions' | 'reports'>('prescriptions');
   const [refreshing, setRefreshing] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
+  const [medModalVisible, setMedModalVisible] = useState(false);
+  const [medName, setMedName] = useState('');
+  const [freqTimes, setFreqTimes] = useState('');
+  const [freqDays, setFreqDays] = useState('');
+  const [durationDays, setDurationDays] = useState('');
+  const [timeStr, setTimeStr] = useState('');
+  const [medError, setMedError] = useState<string | null>(null);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
   // FAB bounce animation
   const bounce = useSharedValue(0);
@@ -121,38 +130,22 @@ export default function Dashboard() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={styles.greeting}>Hi{user.name ? `, ${user.name.split(' ')[0]}` : ''}</Text>
-              <Text style={styles.sectionSubtitle}>Here’s your health snapshot</Text>
+              <Text style={styles.sectionSubtitle}>Welcome to Healix</Text>
             </View>
             <Pressable
-              onPress={() => {}}
+              onPress={() => setDetailsVisible(true)}
               style={({ pressed }) => [styles.avatarButton, pressed && { opacity: 0.8 }]}>
               <Text style={styles.avatarText}>{user.name?.[0]?.toUpperCase() ?? 'U'}</Text>
+            </Pressable>
+            <Pressable
+                onPress={async () => { await clearUser(); router.replace('/' as any); }}
+                style={({ pressed }) => [styles.logoutChip, { marginLeft: 12 }, pressed && { opacity: 0.85 }]}>
+                <Ionicons name="log-out-outline" size={18} color="#EF4444" />
             </Pressable>
           </View>
 
           <View style={styles.metricsRow}>
-            {/* <View style={styles.metricsWrap}>
-              <Metric label="Age" value={String(user.age ?? '-')} />
-              <Dot />
-              <Metric label="Gender" value={user.gender ?? '-'} />
-              <Dot />
-              <Metric label="Blood" value={user.blood_group ?? '-'} />
-              <Dot />
-              <Metric label="Height" value={user.height_cm ? `${user.height_cm} cm` : '-'} />
-              <Dot />
-              <Metric label="Weight" value={user.weight_kg ? `${user.weight_kg} kg` : '-'} />
-              <Dot />
-              <Metric label="BMI" value={user.bmi ? String(user.bmi) : '-'} />
-            </View> */}
             <View style={styles.metricActions}>
-              <Pressable onPress={() => setDetailsVisible(true)} style={({ pressed }) => [styles.infoChip, pressed && { opacity: 0.85 }]}>
-                <Text style={styles.infoText}>Details</Text>
-              </Pressable>
-              <Pressable
-                onPress={async () => { await clearUser(); router.replace('/' as any); }}
-                style={({ pressed }) => [styles.logoutChip, pressed && { opacity: 0.85 }]}>
-                <Text style={styles.logoutText}>Logout</Text>
-              </Pressable>
             </View>
           </View>
 
@@ -169,13 +162,18 @@ export default function Dashboard() {
         </Animated.View>
 
         {/* Active Medications */}
-        <SectionHeader title="Active Medications" actionLabel="Add" onAction={addMedication} />
+  <SectionHeader title="Active Medications" actionLabel="Add" onAction={() => setMedModalVisible(true)} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScroll}>
           {meds.map((m, i) => (
             <Animated.View key={`${m.name}-${i}`} entering={FadeInUp.delay(60 * i)} style={styles.medCard}>
               <View style={styles.medHeader}>
                 <Text style={styles.medName}>{m.name}</Text>
-                <View style={[styles.statusDot, { backgroundColor: m.status === 'taken' ? Pastel.green : Pastel.yellow }]} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={[styles.statusDot, { backgroundColor: m.status === 'taken' ? Pastel.green : Pastel.yellow }]} />
+                  <Pressable accessibilityLabel={`Delete ${m.name}`} onPress={() => { setDeleteIndex(i); setDeleteConfirmVisible(true); }} style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.8 }]}>
+                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  </Pressable>
+                </View>
               </View>
               <Text style={styles.medMeta}>{m.dosage} • {m.frequency}</Text>
               <View style={styles.nextDoseRow}>
@@ -184,7 +182,7 @@ export default function Dashboard() {
               </View>
             </Animated.View>
           ))}
-          <Pressable onPress={addMedication} style={({ pressed }) => [styles.addMedCard, pressed && { opacity: 0.9 }]}>
+          <Pressable onPress={() => setMedModalVisible(true)} style={({ pressed }) => [styles.addMedCard, pressed && { opacity: 0.9 }]}>
             <Ionicons name="add" size={28} color={Pastel.blue} />
             <Text style={{ color: Pastel.blue, fontWeight: '600' }}>Add</Text>
           </Pressable>
@@ -201,6 +199,10 @@ export default function Dashboard() {
         </View>
         {activeTab === 'prescriptions' ? (
           <View style={styles.vList}>
+            <Pressable onPress={() => router.push('/prescriptions/new' as any)} style={({ pressed }) => [styles.listCard, styles.addFirstCard, pressed && { opacity: 0.9 }]}>
+              <Text style={[styles.listTitle, { color: Pastel.blue }]}>+ Add Prescription</Text>
+              <Text style={styles.listSubtitle}>Create a new prescription entry</Text>
+            </Pressable>
             {prescriptions.map((p, i) => (
               <Pressable key={p.id ?? `rx-${i}`} onPress={() => router.push(`/prescriptions/${p.id ?? i}` as any)} style={({ pressed }) => [styles.listCard, pressed && { opacity: 0.9 }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -213,6 +215,10 @@ export default function Dashboard() {
           </View>
         ) : (
           <View style={styles.vList}>
+            <Pressable onPress={() => router.push('/reports/new' as any)} style={({ pressed }) => [styles.listCard, styles.addFirstCard, pressed && { opacity: 0.9 }]}>
+              <Text style={[styles.listTitle, { color: Pastel.blue }]}>+ Add Report</Text>
+              <Text style={styles.listSubtitle}>Upload or add a lab report</Text>
+            </Pressable>
             {reports.map((r, i) => (
               <Pressable key={r.id ?? `rep-${i}`} onPress={() => router.push(`/reports/${r.id ?? i}` as any)} style={({ pressed }) => [styles.listCard, pressed && { opacity: 0.9 }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -282,6 +288,149 @@ export default function Dashboard() {
               <DetailRow label="BMI" value={user.bmi != null ? String(user.bmi) : '-'} />
               <DetailRow label="Allergies" value={(user.allergies && user.allergies.length) ? user.allergies.join(', ') : 'None'} />
               <DetailRow label="Conditions" value={(user.conditions && user.conditions.length) ? user.conditions.join(', ') : 'None'} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      {/* Delete Medication Confirm Modal */}
+      <Modal visible={deleteConfirmVisible} animationType="fade" transparent onRequestClose={() => setDeleteConfirmVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Delete medication?</Text>
+            <Text style={{ color: Pastel.grayText, marginTop: 6 }}>This action can’t be undone.</Text>
+            {deleteIndex != null && meds[deleteIndex] ? (
+              <View style={{ marginTop: 10, padding: 10, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border }}>
+                <Text style={{ color: Pastel.text, fontWeight: '700' }}>{meds[deleteIndex].name}</Text>
+                <Text style={{ color: Pastel.grayText }}>{meds[deleteIndex].dosage} • {meds[deleteIndex].frequency}</Text>
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <Pressable onPress={() => { setDeleteConfirmVisible(false); setDeleteIndex(null); }} style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.9 }]}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={() => {
+                if (deleteIndex == null) return;
+                setUser((prev) => {
+                  if (!prev) return prev;
+                  const nextMeds = (prev.medications ?? []).filter((_, idx) => idx !== deleteIndex);
+                  const next = { ...prev, medications: nextMeds } as UserData;
+                  saveUser(next);
+                  return next;
+                });
+                setDeleteConfirmVisible(false);
+                setDeleteIndex(null);
+              }} style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.9 }]}>
+                <Text style={styles.deleteText}>Delete</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Medication Modal */}
+      <Modal visible={medModalVisible} animationType="slide" transparent onRequestClose={() => setMedModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.modalTitle}>Add Medication</Text>
+              <Pressable onPress={() => setMedModalVisible(false)} style={({ pressed }) => [styles.modalClose, pressed && { opacity: 0.8 }]}>
+                <Ionicons name="close" size={20} color={Pastel.text} />
+              </Pressable>
+            </View>
+            <ScrollView style={{ marginTop: 8 }} contentContainerStyle={{ gap: 12, paddingBottom: 8 }}>
+              <View>
+                <Text style={styles.inputLabel}>Medicine name</Text>
+                <TextInput
+                  value={medName}
+                  onChangeText={setMedName}
+                  placeholder="e.g., Metformin"
+                  style={styles.input}
+                />
+              </View>
+
+              <View>
+                <Text style={styles.inputLabel}>Frequency</Text>
+                <View style={styles.rowInline}> 
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputSublabel}>Times</Text>
+                    <TextInput
+                      value={freqTimes}
+                      onChangeText={(t) => setFreqTimes(t.replace(/[^0-9]/g, ''))}
+                      placeholder="2"
+                      keyboardType="numeric"
+                      style={styles.input}
+                    />
+                  </View>
+                  <Text style={{ paddingHorizontal: 8, alignSelf: 'flex-end', marginBottom: 10, color: Pastel.grayText }}>per</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputSublabel}>Days</Text>
+                    <TextInput
+                      value={freqDays}
+                      onChangeText={(t) => setFreqDays(t.replace(/[^0-9]/g, ''))}
+                      placeholder="1"
+                      keyboardType="numeric"
+                      style={styles.input}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              <View>
+                <Text style={styles.inputLabel}>For how many days</Text>
+                <TextInput
+                  value={durationDays}
+                  onChangeText={(t) => setDurationDays(t.replace(/[^0-9]/g, ''))}
+                  placeholder="7"
+                  keyboardType="numeric"
+                  style={styles.input}
+                />
+              </View>
+
+              <View>
+                <Text style={styles.inputLabel}>Time of day</Text>
+                <TextInput
+                  value={timeStr}
+                  onChangeText={setTimeStr}
+                  placeholder="8:00 PM"
+                  inputMode={Platform.OS === 'web' ? 'text' as any : undefined}
+                  style={styles.input}
+                />
+              </View>
+
+              {medError ? <Text style={{ color: '#b91c1c' }}>{medError}</Text> : null}
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+                <Pressable onPress={() => setMedModalVisible(false)} style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.9 }]}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setMedError(null);
+                    if (!medName.trim()) return setMedError('Please enter a medicine name.');
+                    if (!freqTimes || !freqDays) return setMedError('Please enter frequency (times and days).');
+                    if (!durationDays) return setMedError('Please enter duration in days.');
+                    if (!timeStr.trim()) return setMedError('Please enter a time.');
+
+                    const newMed: Medication = {
+                      name: medName.trim(),
+                      dosage: '—',
+                      frequency: `${Number(freqTimes)}/${Number(freqDays)}d`,
+                      next_dose: timeStr.trim(),
+                      status: 'upcoming',
+                    };
+                    setUser((prev) => {
+                      const base = prev ?? getSampleUser();
+                      const next: UserData = { ...base, medications: [...(base.medications ?? []), newMed] };
+                      saveUser(next);
+                      return next;
+                    });
+                    setMedModalVisible(false);
+                    setMedName(''); setFreqTimes(''); setFreqDays(''); setDurationDays(''); setTimeStr('');
+                  }}
+                  style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.9 }]}>
+                  <Text style={styles.saveText}>Save</Text>
+                </Pressable>
+              </View>
             </ScrollView>
           </View>
         </View>
@@ -371,7 +520,7 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 12, color: Pastel.text },
 
   sectionHeader: { marginTop: 18, marginBottom: 8, paddingHorizontal: 2, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: Pastel.text },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: Pastel.text, marginTop: 12 },
   sectionAction: { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: Pastel.chipBg, borderRadius: 999 },
   sectionActionText: { color: Pastel.blue, fontWeight: '700' },
 
@@ -384,6 +533,7 @@ const styles = StyleSheet.create({
   nextDoseText: { color: Pastel.grayText },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
   addMedCard: { width: 120, backgroundColor: '#F8FAFC', borderRadius: 16, padding: 14, marginRight: 12, alignItems: 'center', justifyContent: 'center', borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border },
+  iconBtn: { padding: 6, borderRadius: 8 },
 
   segmentedContainer: { flexDirection: 'row', backgroundColor: Pastel.chipBg, borderRadius: 12, padding: 4, marginTop: 10 },
   segment: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
@@ -393,6 +543,7 @@ const styles = StyleSheet.create({
 
   vList: { marginTop: 10, gap: 10 },
   listCard: { backgroundColor: Pastel.white, borderRadius: 16, padding: 14, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 1, borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border },
+  addFirstCard: { borderStyle: 'dashed', borderWidth: Platform.OS === 'web' ? (1 as any) : StyleSheet.hairlineWidth, borderColor: Pastel.blue, backgroundColor: '#F8FBFF' },
   listTitle: { fontSize: 16, fontWeight: '700', color: Pastel.text },
   listDate: { color: Pastel.grayText },
   listSubtitle: { color: Pastel.grayText, marginTop: 6 },
@@ -425,4 +576,16 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: Platform.OS === 'web' ? (1 as any) : StyleSheet.hairlineWidth, borderColor: Pastel.border },
   detailLabel: { color: Pastel.grayText, fontWeight: '600' },
   detailValue: { color: Pastel.text, fontWeight: '700' },
+
+  // Inputs and buttons
+  inputLabel: { color: Pastel.text, fontWeight: '700', marginBottom: 6 },
+  inputSublabel: { color: Pastel.grayText, fontWeight: '600', marginBottom: 6 },
+  input: { borderWidth: Platform.OS === 'web' ? (1 as any) : StyleSheet.hairlineWidth, borderColor: Pastel.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: Platform.OS === 'web' ? 10 : 12, fontSize: 16, backgroundColor: '#fff', color: Pastel.text },
+  rowInline: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  cancelBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 12, backgroundColor: '#F3F4F6', borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border },
+  cancelText: { color: Pastel.text, fontWeight: '700' },
+  saveBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 12, backgroundColor: Pastel.blue },
+  saveText: { color: '#fff', fontWeight: '800' },
+  deleteBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 12, backgroundColor: '#EF4444' },
+  deleteText: { color: '#fff', fontWeight: '800' },
 });
