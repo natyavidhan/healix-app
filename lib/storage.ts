@@ -1,10 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Medication = {
-  name: string;
-  frequency: string; // e.g., "2/day"
-  next_dose: string; // e.g., "8:00 PM"
-  status: 'taken' | 'upcoming';
+  _id?: string;
+  user_id?: string;
+
+  name: string;                      // Generic or brand name
+  brand_name?: string;               // Optional, helps with clarity
+  form?: 'tablet' | 'syrup' | 'capsule' | 'injection'; // Medication form
+  strength?: string;                 // Dose strength (e.g., "500mg")
+  dosage?: string;                   // Per intake (e.g., "1 tablet")
+  frequency_per_day: number;         // Times per day
+  times: string[];                   // Exact intake times (e.g., ["08:00", "20:00"])
+  duration_days: number;             // Total number of days
+  start_date: string;                // When the course begins (YYYY-MM-DD)
+  end_date?: string;                 // Auto-calculated from start + duration
+  instructions?: string;             // Doctor's notes (optional)
+
+  // Meta
+  source?: 'prescription_scan' | 'manual_add' | 'barcode_scan';
+  status: 'active' | 'completed' | 'stopped';
+  created_at?: string;               // ISO timestamp
+  updated_at?: string;               // ISO timestamp
 };
 
 export type Prescription = {
@@ -113,8 +129,40 @@ export function getSampleUser(): UserData {
     allergies: ['Penicillin'],
     conditions: ['Diabetes'],
     medications: [
-      { name: 'Metformin', frequency: '2/day', next_dose: '8:00 PM', status: 'upcoming' },
-      { name: 'Paracetamol', frequency: '3/day', next_dose: '9:00 PM', status: 'upcoming' },
+      {
+        name: 'Metformin',
+        brand_name: 'Glucophage',
+        form: 'tablet',
+        strength: '500mg',
+        dosage: '1 tablet',
+        frequency_per_day: 2,
+        times: ['08:00', '20:00'],
+        duration_days: 30,
+        start_date: '2025-10-01',
+        end_date: '2025-10-31',
+        instructions: 'After food',
+        source: 'manual_add',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        name: 'Paracetamol',
+        brand_name: 'Calpol 500',
+        form: 'tablet',
+        strength: '500mg',
+        dosage: '1 tablet',
+        frequency_per_day: 3,
+        times: ['08:00', '14:00', '21:00'],
+        duration_days: 5,
+        start_date: '2025-10-12',
+        end_date: '2025-10-17',
+        instructions: 'After food',
+        source: 'manual_add',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
     ],
     prescriptions: [
       { id: 'rx-1', doctor: 'Dr. Mehta', date: '2025-10-12', medicine_count: 3 },

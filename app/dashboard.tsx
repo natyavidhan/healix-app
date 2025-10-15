@@ -1,4 +1,4 @@
-import { getAccessToken, syncUserFromBackend } from '@/lib/api';
+import { createMedication, deleteMedication as deleteMedicationAPI, getAccessToken, getMedications, syncUserFromBackend } from '@/lib/api';
 import i18n from '@/lib/i18n';
 import { calcBMI, clearUser, loadUser, saveUser, type Medication, type Prescription, type Reminder, type Report, type UserData } from '@/lib/storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,10 +34,15 @@ export default function Dashboard() {
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [medModalVisible, setMedModalVisible] = useState(false);
   const [medName, setMedName] = useState('');
-  const [freqTimes, setFreqTimes] = useState('');
-  const [freqDays, setFreqDays] = useState('');
+  const [medBrandName, setMedBrandName] = useState('');
+  const [medForm, setMedForm] = useState<'tablet' | 'syrup' | 'capsule' | 'injection'>('tablet');
+  const [medStrength, setMedStrength] = useState('');
+  const [medDosage, setMedDosage] = useState('');
+  const [freqPerDay, setFreqPerDay] = useState('');
+  const [medTimes, setMedTimes] = useState('');
   const [durationDays, setDurationDays] = useState('');
-  const [timeStr, setTimeStr] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [medInstructions, setMedInstructions] = useState('');
   const [medError, setMedError] = useState<string | null>(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
@@ -92,6 +97,12 @@ export default function Dashboard() {
         // Load existing local data to preserve medications, prescriptions, reports, reminders
         const existingLocal = await loadUser();
 
+          // Fetch medications from backend
+          console.log('Dashboard: Fetching medications from backend...');
+          const medsResult = await getMedications();
+          const backendMedications = medsResult.success ? medsResult.medications || [] : [];
+          console.log('Dashboard: Backend medications count:', backendMedications.length);
+
         const enriched: UserData = {
           name: backendUser.full_name || backendUser.email || 'User',
           age,
@@ -103,7 +114,7 @@ export default function Dashboard() {
           allergies,
           conditions,
           // Preserve local app data
-          medications: existingLocal?.medications || [],
+            medications: backendMedications.length > 0 ? backendMedications : (existingLocal?.medications || []),
           prescriptions: existingLocal?.prescriptions || [
             { id: 'rx-1', doctor: 'Dr. Mehta', date: '2025-10-12', medicine_count: 3 },
             { id: 'rx-2', doctor: 'Dr. Kapoor', date: '2025-09-28', medicine_count: 2 },
@@ -229,6 +240,10 @@ export default function Dashboard() {
         const allergies = backendUser.allergies ? backendUser.allergies.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
         const conditions = backendUser.known_conditions ? backendUser.known_conditions.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
 
+          // Fetch medications from backend
+          const medsResult = await getMedications();
+          const backendMedications = medsResult.success ? medsResult.medications || [] : [];
+
         const synced: UserData = {
           ...user,
           name: backendUser.full_name || backendUser.email || user?.name || 'User',
@@ -240,6 +255,7 @@ export default function Dashboard() {
           bmi,
           allergies,
           conditions,
+            medications: backendMedications.length > 0 ? backendMedications : user?.medications,
           last_sync: new Date().toISOString(),
         } as UserData;
 
@@ -342,16 +358,18 @@ export default function Dashboard() {
               <View style={styles.medHeader}>
                 <Text style={styles.medName}>{m.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={[styles.statusDot, { backgroundColor: m.status === 'taken' ? Pastel.green : Pastel.yellow }]} />
+                  <View style={[styles.statusDot, { backgroundColor: m.status === 'active' ? Pastel.green : m.status === 'completed' ? Pastel.blue : Pastel.yellow }]} />
                   <Pressable accessibilityLabel={`Delete ${m.name}`} onPress={() => { setDeleteIndex(i); setDeleteConfirmVisible(true); }} style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.8 }]}>
                     <Ionicons name="trash-outline" size={18} color="#EF4444" />
                   </Pressable>
                 </View>
               </View>
-              <Text style={styles.medMeta}>{m.frequency}</Text>
+              <Text style={styles.medMeta}>
+                {m.dosage || m.strength} • {m.frequency_per_day}x/day{m.form ? ` • ${m.form}` : ''}
+              </Text>
               <View style={styles.nextDoseRow}>
                 <Ionicons name="time-outline" size={16} color={Pastel.grayText} />
-                <Text style={styles.nextDoseText}>Next: {m.next_dose}</Text>
+                <Text style={styles.nextDoseText}>Next: {m.times[0] || 'N/A'}</Text>
               </View>
             </Animated.View>
           ))}
@@ -474,15 +492,31 @@ export default function Dashboard() {
             {deleteIndex != null && meds[deleteIndex] ? (
               <View style={{ marginTop: 10, padding: 10, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border }}>
                 <Text style={{ color: Pastel.text, fontWeight: '700' }}>{meds[deleteIndex].name}</Text>
-                <Text style={{ color: Pastel.grayText }}>{meds[deleteIndex].frequency}</Text>
+                <Text style={{ color: Pastel.grayText }}>
+                  {meds[deleteIndex].dosage || meds[deleteIndex].strength} • {meds[deleteIndex].frequency_per_day}x/day
+                </Text>
               </View>
             ) : null}
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
               <Pressable onPress={() => { setDeleteConfirmVisible(false); setDeleteIndex(null); }} style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.9 }]}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </Pressable>
-              <Pressable onPress={() => {
+                <Pressable onPress={async () => {
                 if (deleteIndex == null) return;
+                  const medToDelete = meds[deleteIndex];
+
+                  // Try to delete from backend if it has an _id
+                  const token = await getAccessToken();
+                  if (token && medToDelete._id) {
+                    console.log('Dashboard: Deleting medication from backend...');
+                    const result = await deleteMedicationAPI(medToDelete._id);
+                    if (result.success) {
+                      console.log('Dashboard: Medication deleted from backend');
+                    } else {
+                      console.warn('Dashboard: Failed to delete from backend:', result.error);
+                    }
+                  }
+
                 setUser((prev) => {
                   if (!prev) return prev;
                   const nextMeds = (prev.medications ?? []).filter((_, idx) => idx !== deleteIndex);
@@ -512,61 +546,121 @@ export default function Dashboard() {
             </View>
             <ScrollView style={{ marginTop: 8 }} contentContainerStyle={{ gap: 12, paddingBottom: 8 }}>
               <View>
-                <Text style={styles.inputLabel}>Medicine name</Text>
+                <Text style={styles.inputLabel}>Medicine name *</Text>
                 <TextInput
                   value={medName}
                   onChangeText={setMedName}
-                  placeholder="e.g., Metformin"
+                  placeholder="e.g., Paracetamol"
                   style={styles.input}
                 />
               </View>
 
               <View>
-                <Text style={styles.inputLabel}>Frequency</Text>
-                <View style={styles.rowInline}> 
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.inputSublabel}>Times</Text>
-                    <TextInput
-                      value={freqTimes}
-                      onChangeText={(t) => setFreqTimes(t.replace(/[^0-9]/g, ''))}
-                      placeholder="2"
-                      keyboardType="numeric"
-                      style={styles.input}
-                    />
-                  </View>
-                  <Text style={{ paddingHorizontal: 8, alignSelf: 'flex-end', marginBottom: 10, color: Pastel.grayText }}>per</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.inputSublabel}>Days</Text>
-                    <TextInput
-                      value={freqDays}
-                      onChangeText={(t) => setFreqDays(t.replace(/[^0-9]/g, ''))}
-                      placeholder="1"
-                      keyboardType="numeric"
-                      style={styles.input}
-                    />
+                <Text style={styles.inputLabel}>Brand name (optional)</Text>
+                <TextInput
+                  value={medBrandName}
+                  onChangeText={setMedBrandName}
+                  placeholder="e.g., Calpol 500"
+                  style={styles.input}
+                />
+              </View>
+
+              <View style={styles.rowInline}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Form</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    {(['tablet', 'syrup', 'capsule', 'injection'] as const).map((f) => (
+                      <Pressable
+                        key={f}
+                        onPress={() => setMedForm(f)}
+                        style={({ pressed }) => [
+                          styles.formChip,
+                          medForm === f && styles.formChipActive,
+                          pressed && { opacity: 0.8 }
+                        ]}
+                      >
+                        <Text style={[styles.formChipText, medForm === f && styles.formChipTextActive]}>
+                          {f.charAt(0).toUpperCase() + f.slice(1)}
+                        </Text>
+                      </Pressable>
+                    ))}
                   </View>
                 </View>
               </View>
 
+              <View style={styles.rowInline}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Strength</Text>
+                  <TextInput
+                    value={medStrength}
+                    onChangeText={setMedStrength}
+                    placeholder="e.g., 500mg"
+                    style={styles.input}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Dosage</Text>
+                  <TextInput
+                    value={medDosage}
+                    onChangeText={setMedDosage}
+                    placeholder="e.g., 1 tablet"
+                    style={styles.input}
+                  />
+                </View>
+              </View>
+
               <View>
-                <Text style={styles.inputLabel}>For how many days</Text>
+                <Text style={styles.inputLabel}>Frequency per day *</Text>
                 <TextInput
-                  value={durationDays}
-                  onChangeText={(t) => setDurationDays(t.replace(/[^0-9]/g, ''))}
-                  placeholder="7"
+                  value={freqPerDay}
+                  onChangeText={(t) => setFreqPerDay(t.replace(/[^0-9]/g, ''))}
+                  placeholder="e.g., 2"
                   keyboardType="numeric"
                   style={styles.input}
                 />
               </View>
 
               <View>
-                <Text style={styles.inputLabel}>Time of day</Text>
+                <Text style={styles.inputLabel}>Times (comma-separated) *</Text>
                 <TextInput
-                  value={timeStr}
-                  onChangeText={setTimeStr}
-                  placeholder="8:00 PM"
-                  inputMode={Platform.OS === 'web' ? 'text' as any : undefined}
+                  value={medTimes}
+                  onChangeText={setMedTimes}
+                  placeholder="e.g., 08:00, 20:00"
                   style={styles.input}
+                />
+                <Text style={styles.inputSublabel}>Enter times in HH:MM format, separated by commas</Text>
+              </View>
+
+              <View style={styles.rowInline}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Duration (days) *</Text>
+                  <TextInput
+                    value={durationDays}
+                    onChangeText={(t) => setDurationDays(t.replace(/[^0-9]/g, ''))}
+                    placeholder="e.g., 5"
+                    keyboardType="numeric"
+                    style={styles.input}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Start date *</Text>
+                  <TextInput
+                    value={startDate}
+                    onChangeText={setStartDate}
+                    placeholder="YYYY-MM-DD"
+                    style={styles.input}
+                  />
+                </View>
+              </View>
+
+              <View>
+                <Text style={styles.inputLabel}>Instructions (optional)</Text>
+                <TextInput
+                  value={medInstructions}
+                  onChangeText={setMedInstructions}
+                  placeholder="e.g., After food"
+                  style={styles.input}
+                  multiline
                 />
               </View>
 
@@ -577,27 +671,66 @@ export default function Dashboard() {
                   <Text style={styles.cancelText}>Cancel</Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => {
+                    onPress={async () => {
                     setMedError(null);
                     if (!medName.trim()) return setMedError('Please enter a medicine name.');
-                    if (!freqTimes || !freqDays) return setMedError('Please enter frequency (times and days).');
+                    if (!freqPerDay) return setMedError('Please enter frequency per day.');
+                    if (!medTimes.trim()) return setMedError('Please enter intake times.');
                     if (!durationDays) return setMedError('Please enter duration in days.');
-                    if (!timeStr.trim()) return setMedError('Please enter a time.');
+                    if (!startDate.trim()) return setMedError('Please enter start date.');
+
+                    // Parse times
+                    const timesArray = medTimes.split(',').map(t => t.trim()).filter(Boolean);
+                    if (timesArray.length === 0) return setMedError('Please enter at least one time.');
+
+                    // Calculate end date
+                    const start = new Date(startDate);
+                    const end = new Date(start);
+                    end.setDate(end.getDate() + Number(durationDays));
+                    const endDateStr = end.toISOString().slice(0, 10);
 
                     const newMed: Medication = {
                       name: medName.trim(),
-                      frequency: `${Number(freqTimes)}/${Number(freqDays)}d`,
-                      next_dose: timeStr.trim(),
-                      status: 'upcoming',
+                      brand_name: medBrandName.trim() || undefined,
+                      form: medForm,
+                      strength: medStrength.trim() || undefined,
+                      dosage: medDosage.trim() || undefined,
+                      frequency_per_day: Number(freqPerDay),
+                      times: timesArray,
+                      duration_days: Number(durationDays),
+                      start_date: startDate.trim(),
+                      end_date: endDateStr,
+                      instructions: medInstructions.trim() || undefined,
+                      source: 'manual_add',
+                      status: 'active',
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
                     };
+
+                      // Try to save to backend first
+                      const token = await getAccessToken();
+                      let savedMed = newMed;
+                      if (token) {
+                        console.log('Dashboard: Saving medication to backend...');
+                        const result = await createMedication(newMed);
+                        if (result.success && result.medication) {
+                          console.log('Dashboard: Medication saved to backend');
+                          savedMed = result.medication;
+                        } else {
+                          console.warn('Dashboard: Failed to save to backend:', result.error);
+                        }
+                      }
+
                     setUser((prev) => {
                       if (!prev) return prev;
-                      const next: UserData = { ...prev, medications: [...(prev.medications ?? []), newMed] };
+                        const next: UserData = { ...prev, medications: [...(prev.medications ?? []), savedMed] };
                       saveUser(next);
                       return next;
                     });
                     setMedModalVisible(false);
-                    setMedName(''); setFreqTimes(''); setFreqDays(''); setDurationDays(''); setTimeStr('');
+                    setMedName(''); setMedBrandName(''); setMedForm('tablet'); setMedStrength('');
+                    setMedDosage(''); setFreqPerDay(''); setMedTimes(''); setDurationDays('');
+                    setStartDate(''); setMedInstructions('');
                   }}
                   style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.9 }]}>
                   <Text style={styles.saveText}>Save</Text>
@@ -761,4 +894,10 @@ const styles = StyleSheet.create({
   saveText: { color: '#fff', fontWeight: '800' },
   deleteBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 12, backgroundColor: '#EF4444' },
   deleteText: { color: '#fff', fontWeight: '800' },
+  
+  // Form chip styles
+  formChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: Pastel.chipBg, borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border },
+  formChipActive: { backgroundColor: Pastel.blue, borderColor: Pastel.blue },
+  formChipText: { color: Pastel.text, fontWeight: '600', fontSize: 14 },
+  formChipTextActive: { color: '#fff', fontWeight: '700' },
 });

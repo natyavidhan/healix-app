@@ -1,3 +1,4 @@
+import { createMedication, getAccessToken } from '@/lib/api';
 import { loadUser, saveUser, type Medication, type UserData } from '@/lib/storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -5,10 +6,15 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } fr
 
 type ManualMed = {
   name: string;
-  times: string; // numeric string
-  days: string; // numeric string
-  duration: string; // numeric string
-  timeStr: string;
+  brand_name: string;
+  form: 'tablet' | 'syrup' | 'capsule' | 'injection';
+  strength: string;
+  dosage: string;
+  frequency_per_day: string; // numeric string
+  times: string; // comma-separated times
+  duration_days: string; // numeric string
+  start_date: string;
+  instructions: string;
 };
 
 const Pastel = {
@@ -27,7 +33,18 @@ export default function NewPrescription() {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [date, setDate] = useState<string>(today);
   const [rows, setRows] = useState<ManualMed[]>([
-    { name: '', times: '', days: '1', duration: '', timeStr: '' },
+    {
+      name: '',
+      brand_name: '',
+      form: 'tablet',
+      strength: '',
+      dosage: '',
+      frequency_per_day: '',
+      times: '',
+      duration_days: '',
+      start_date: today,
+      instructions: '',
+    },
   ]);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +53,18 @@ export default function NewPrescription() {
     loadUser().then((u) => { if (!u) saveUser({ name: 'User' } as UserData); });
   }, []);
 
-  const addRow = () => setRows((r) => [...r, { name: '', times: '', days: '1', duration: '', timeStr: '' }]);
+  const addRow = () => setRows((r) => [...r, {
+    name: '',
+    brand_name: '',
+    form: 'tablet',
+    strength: '',
+    dosage: '',
+    frequency_per_day: '',
+    times: '',
+    duration_days: '',
+    start_date: today,
+    instructions: '',
+  }]);
   const removeRow = (idx: number) => setRows((r) => r.filter((_, i) => i !== idx));
   const updateRow = (idx: number, patch: Partial<ManualMed>) => setRows((r) => r.map((row, i) => i === idx ? { ...row, ...patch } : row));
 
@@ -50,34 +78,82 @@ export default function NewPrescription() {
     const cleaned = rows.map((r) => ({
       ...r,
       name: r.name.trim(),
+      brand_name: r.brand_name.trim(),
+      strength: r.strength.trim(),
+      dosage: r.dosage.trim(),
+      frequency_per_day: r.frequency_per_day.trim(),
       times: r.times.trim(),
-      days: r.days.trim() || '1',
-      duration: r.duration.trim(),
-      timeStr: r.timeStr.trim(),
+      duration_days: r.duration_days.trim(),
+      start_date: r.start_date.trim(),
+      instructions: r.instructions.trim(),
     }));
     if (!cleaned.length) return setError('Add at least one medication.');
     for (const r of cleaned) {
       if (!r.name) return setError('Each medication requires a name.');
-      if (!r.times || !r.days) return setError('Each medication needs frequency (times and days).');
-      if (!r.duration) return setError('Each medication needs duration in days.');
-      if (!r.timeStr) return setError('Each medication needs a time.');
+      if (!r.frequency_per_day) return setError('Each medication needs frequency per day.');
+      if (!r.times) return setError('Each medication needs intake times.');
+      if (!r.duration_days) return setError('Each medication needs duration in days.');
+      if (!r.start_date) return setError('Each medication needs a start date.');
     }
 
-    const medsToAdd: Medication[] = cleaned.map((r) => ({
-      name: r.name,
-      frequency: `${Number(r.times)}/${Number(r.days)}d`,
-      next_dose: r.timeStr,
-      status: 'upcoming',
-    }));
+    const medsToAdd: Medication[] = cleaned.map((r) => {
+      // Parse times
+      const timesArray = r.times.split(',').map(t => t.trim()).filter(Boolean);
+      
+      // Calculate end date
+      const start = new Date(r.start_date);
+      const end = new Date(start);
+      end.setDate(end.getDate() + Number(r.duration_days));
+      const endDateStr = end.toISOString().slice(0, 10);
+
+      return {
+        name: r.name,
+        brand_name: r.brand_name || undefined,
+        form: r.form,
+        strength: r.strength || undefined,
+        dosage: r.dosage || undefined,
+        frequency_per_day: Number(r.frequency_per_day),
+        times: timesArray,
+        duration_days: Number(r.duration_days),
+        start_date: r.start_date,
+        end_date: endDateStr,
+        instructions: r.instructions || undefined,
+        source: 'manual_add',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+      // Try to save medications to backend
+      const token = await getAccessToken();
+      const savedMeds: Medication[] = [];
+    
+      if (token) {
+        console.log('Prescription: Saving medications to backend...');
+        for (const med of medsToAdd) {
+          const result = await createMedication(med);
+          if (result.success && result.medication) {
+            console.log('Prescription: Medication saved to backend');
+            savedMeds.push(result.medication);
+          } else {
+            console.warn('Prescription: Failed to save medication:', result.error);
+            savedMeds.push(med); // Fallback to local med if backend fails
+          }
+        }
+      } else {
+        // No token, use local meds
+        savedMeds.push(...medsToAdd);
+      }
 
     const u = await loadUser();
     const base = u ?? ({ name: 'User' } as UserData);
     const next: UserData = {
       ...base,
-      medications: [...(base.medications ?? []), ...medsToAdd],
+        medications: [...(base.medications ?? []), ...savedMeds],
       prescriptions: [
         ...((base.prescriptions ?? [])),
-        { doctor: doctor.trim() || 'Unknown', date: date || today, medicine_count: medsToAdd.length },
+          { doctor: doctor.trim() || 'Unknown', date: date || today, medicine_count: savedMeds.length },
       ],
     };
     await saveUser(next);
@@ -125,26 +201,68 @@ export default function NewPrescription() {
               <View key={idx} style={styles.medRow}> 
                 <View style={styles.rowWrap}>
                   <View style={styles.fieldWide}> 
-                    <Text style={styles.label}>Name</Text>
-                    <TextInput value={r.name} onChangeText={(v) => updateRow(idx, { name: v })} placeholder="Metformin" style={styles.input} />
+                    <Text style={styles.label}>Name *</Text>
+                    <TextInput value={r.name} onChangeText={(v) => updateRow(idx, { name: v })} placeholder="Paracetamol" style={styles.input} />
+                  </View>
+                  <View style={styles.field}> 
+                    <Text style={styles.label}>Brand name</Text>
+                    <TextInput value={r.brand_name} onChangeText={(v) => updateRow(idx, { brand_name: v })} placeholder="Calpol 500" style={styles.input} />
                   </View>
                 </View>
                 <View style={styles.rowWrap}>
                   <View style={styles.fieldSmall}> 
-                    <Text style={styles.label}>Times</Text>
-                    <TextInput value={r.times} onChangeText={(v) => updateRow(idx, { times: v.replace(/[^0-9]/g, '') })} placeholder="2" keyboardType="numeric" style={styles.input} />
+                    <Text style={styles.label}>Form</Text>
+                    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                      {(['tablet', 'syrup', 'capsule', 'injection'] as const).map((f) => (
+                        <Pressable
+                          key={f}
+                          onPress={() => updateRow(idx, { form: f })}
+                          style={({ pressed }) => [
+                            styles.formChip,
+                            r.form === f && styles.formChipActive,
+                            pressed && { opacity: 0.8 }
+                          ]}
+                        >
+                          <Text style={[styles.formChipText, r.form === f && styles.formChipTextActive]}>
+                            {f.charAt(0).toUpperCase() + f.slice(1)}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.rowWrap}>
+                  <View style={styles.fieldSmall}> 
+                    <Text style={styles.label}>Strength</Text>
+                    <TextInput value={r.strength} onChangeText={(v) => updateRow(idx, { strength: v })} placeholder="500mg" style={styles.input} />
                   </View>
                   <View style={styles.fieldSmall}> 
-                    <Text style={styles.label}>Days</Text>
-                    <TextInput value={r.days} onChangeText={(v) => updateRow(idx, { days: v.replace(/[^0-9]/g, '') })} placeholder="1" keyboardType="numeric" style={styles.input} />
+                    <Text style={styles.label}>Dosage</Text>
+                    <TextInput value={r.dosage} onChangeText={(v) => updateRow(idx, { dosage: v })} placeholder="1 tablet" style={styles.input} />
                   </View>
                   <View style={styles.fieldSmall}> 
-                    <Text style={styles.label}>Duration (days)</Text>
-                    <TextInput value={r.duration} onChangeText={(v) => updateRow(idx, { duration: v.replace(/[^0-9]/g, '') })} placeholder="7" keyboardType="numeric" style={styles.input} />
+                    <Text style={styles.label}>Freq/day *</Text>
+                    <TextInput value={r.frequency_per_day} onChangeText={(v) => updateRow(idx, { frequency_per_day: v.replace(/[^0-9]/g, '') })} placeholder="2" keyboardType="numeric" style={styles.input} />
+                  </View>
+                </View>
+                <View style={styles.rowWrap}>
+                  <View style={styles.field}> 
+                    <Text style={styles.label}>Times (HH:MM, comma-sep) *</Text>
+                    <TextInput value={r.times} onChangeText={(v) => updateRow(idx, { times: v })} placeholder="08:00, 20:00" style={styles.input} />
+                  </View>
+                  <View style={styles.fieldSmall}> 
+                    <Text style={styles.label}>Duration (days) *</Text>
+                    <TextInput value={r.duration_days} onChangeText={(v) => updateRow(idx, { duration_days: v.replace(/[^0-9]/g, '') })} placeholder="5" keyboardType="numeric" style={styles.input} />
                   </View>
                   <View style={styles.field}> 
-                    <Text style={styles.label}>Time of day</Text>
-                    <TextInput value={r.timeStr} onChangeText={(v) => updateRow(idx, { timeStr: v })} placeholder="8:00 PM" style={styles.input} />
+                    <Text style={styles.label}>Start date *</Text>
+                    <TextInput value={r.start_date} onChangeText={(v) => updateRow(idx, { start_date: v })} placeholder="YYYY-MM-DD" style={styles.input} />
+                  </View>
+                </View>
+                <View style={styles.rowWrap}>
+                  <View style={styles.fieldWide}> 
+                    <Text style={styles.label}>Instructions</Text>
+                    <TextInput value={r.instructions} onChangeText={(v) => updateRow(idx, { instructions: v })} placeholder="After food" style={styles.input} multiline />
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 }}>
@@ -211,4 +329,10 @@ const styles = StyleSheet.create({
   cancelText: { color: Pastel.text, fontWeight: '700' },
   saveBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 12, backgroundColor: Pastel.blue },
   saveText: { color: '#fff', fontWeight: '800' },
+  
+  // Form chip styles
+  formChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: Pastel.chipBg, borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border },
+  formChipActive: { backgroundColor: Pastel.blue, borderColor: Pastel.blue },
+  formChipText: { color: Pastel.text, fontWeight: '600', fontSize: 12 },
+  formChipTextActive: { color: '#fff', fontWeight: '700' },
 });

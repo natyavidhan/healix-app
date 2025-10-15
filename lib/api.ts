@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Medication } from './storage';
 
 // Configure your Flask backend URL here
 // For local development:
@@ -261,4 +262,103 @@ export async function syncUserFromBackend(): Promise<any | null> {
 
   console.log('API: User data received:', result.user);
   return result.user;
+}
+
+/**
+ * Create a new medication for the current user
+ */
+export async function createMedication(medication: Omit<Medication, '_id' | 'user_id'>): Promise<{
+  success: boolean;
+  medication?: Medication;
+  error?: string;
+}> {
+  const result = await apiRequest('/medications', {
+    method: 'POST',
+    body: JSON.stringify(medication),
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      medication: backendResponse.medication,
+      error: backendResponse.message,
+    };
+  }
+
+  return { success: false, error: result.error || 'Failed to create medication' };
+}
+
+/**
+ * Get all medications for the current user
+ */
+export async function getMedications(): Promise<{
+  success: boolean;
+  medications?: Medication[];
+  error?: string;
+}> {
+  const result = await apiRequest('/medications', {
+    method: 'GET',
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      medications: backendResponse.medications || [],
+      error: backendResponse.message,
+    };
+  }
+
+  return { success: false, medications: [], error: result.error || 'Failed to get medications' };
+}
+
+/**
+ * Update a medication
+ */
+export async function updateMedication(
+  medicationId: string,
+  updates: Partial<Medication>
+): Promise<{
+  success: boolean;
+  medication?: Medication;
+  error?: string;
+}> {
+  const result = await apiRequest(`/medications/${medicationId}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      medication: backendResponse.medication,
+      error: backendResponse.message,
+    };
+  }
+
+  return { success: false, error: result.error || 'Failed to update medication' };
+}
+
+/**
+ * Delete a medication
+ */
+export async function deleteMedication(medicationId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const result = await apiRequest(`/medications/${medicationId}`, {
+    method: 'DELETE',
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      error: backendResponse.message,
+    };
+  }
+
+  return { success: false, error: result.error || 'Failed to delete medication' };
 }
