@@ -1,5 +1,6 @@
+import { getAccessToken, syncUserFromBackend } from '@/lib/api';
 import i18n from '@/lib/i18n';
-import { calcBMI, clearUser, getSampleUser, loadUser, saveUser, type Medication, type Prescription, type Reminder, type Report, type UserData } from '@/lib/storage';
+import { calcBMI, clearUser, loadUser, saveUser, type Medication, type Prescription, type Reminder, type Report, type UserData } from '@/lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -49,8 +50,104 @@ export default function Dashboard() {
   const fabStyle = useAnimatedStyle(() => ({ transform: [{ translateY: bounce.value }] }));
 
   const load = useCallback(async () => {
-    const u = (await loadUser()) ?? getSampleUser();
-  // make sure we have a couple of demo prescriptions if none exist
+    try {
+      console.log('Dashboard: Starting data load...');
+      // First, try to sync from backend if we have a token
+      const token = await getAccessToken();
+      console.log('Dashboard: Token present?', !!token);
+      let backendUser = null;
+      
+      if (token) {
+        console.log('Dashboard: Syncing from backend...');
+        backendUser = await syncUserFromBackend();
+        console.log('Dashboard: Backend data received?', !!backendUser);
+      }
+
+      // If we got backend data, use it and save it locally
+      if (backendUser) {
+        console.log('Dashboard: Processing backend data...');
+        // Map backend data to local UserData format
+        let age: number | undefined;
+        if (backendUser.dob) {
+          const dob = new Date(backendUser.dob);
+          const now = new Date();
+          age = now.getFullYear() - dob.getFullYear();
+          const m = now.getMonth() - dob.getMonth();
+          if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+        }
+
+        const height = backendUser.height_cm ? Number(backendUser.height_cm) : undefined;
+        const weight = backendUser.weight_kg ? Number(backendUser.weight_kg) : undefined;
+        
+        // Calculate BMI
+        let bmi: number | undefined;
+        if (height && weight) {
+          const h = height / 100;
+          bmi = Number((weight / (h * h)).toFixed(2));
+        }
+
+        const allergies = backendUser.allergies ? backendUser.allergies.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+        const conditions = backendUser.known_conditions ? backendUser.known_conditions.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+
+        // Load existing local data to preserve medications, prescriptions, reports, reminders
+        const existingLocal = await loadUser();
+
+        const enriched: UserData = {
+          name: backendUser.full_name || backendUser.email || 'User',
+          age,
+          gender: backendUser.gender ? (backendUser.gender.charAt(0).toUpperCase() + backendUser.gender.slice(1)) : undefined,
+          blood_group: backendUser.blood_group || undefined,
+          height_cm: height,
+          weight_kg: weight,
+          bmi,
+          allergies,
+          conditions,
+          // Preserve local app data
+          medications: existingLocal?.medications || [],
+          prescriptions: existingLocal?.prescriptions || [
+            { id: 'rx-1', doctor: 'Dr. Mehta', date: '2025-10-12', medicine_count: 3 },
+            { id: 'rx-2', doctor: 'Dr. Kapoor', date: '2025-09-28', medicine_count: 2 },
+          ],
+          reports: existingLocal?.reports || [
+            {
+              id: 'rep-1', name: 'Complete Blood Count (CBC)', date: '2025-10-10', summary: 'All parameters within normal limits.',
+              values: [
+                { name: 'Hemoglobin', value: '13.8', unit: 'g/dL', ref: '13.5–17.5', flag: 'normal' },
+                { name: 'WBC', value: '6.5', unit: 'x10^3/µL', ref: '4.0–11.0', flag: 'normal' },
+                { name: 'Platelets', value: '250', unit: 'x10^3/µL', ref: '150–400', flag: 'normal' },
+              ],
+            },
+            {
+              id: 'rep-2', name: 'Lipid Profile', date: '2025-09-22', summary: 'Desirable lipid profile.',
+              values: [
+                { name: 'Total Cholesterol', value: '178', unit: 'mg/dL', ref: '< 200', flag: 'normal' },
+                { name: 'LDL-C', value: '98', unit: 'mg/dL', ref: '< 100', flag: 'normal' },
+              ],
+            },
+          ],
+          reminders: existingLocal?.reminders || [],
+          last_sync: new Date().toISOString(),
+        };
+
+        await saveUser(enriched);
+        setUser(enriched);
+        console.log('Dashboard: Backend data loaded successfully');
+        return;
+      }
+
+      // Fallback to local storage
+      console.log('Dashboard: No backend data, checking local storage...');
+      const u = await loadUser();
+      console.log('Dashboard: Local data present?', !!u);
+      if (!u) {
+        // No data available - redirect to sign in
+        console.log('Dashboard: No data found, redirecting to landing page...');
+        router.replace('/' as any);
+        return;
+      }
+      
+      console.log('Dashboard: Loading from local storage...');
+      // make sure we have a couple of demo prescriptions if none exist
     let enriched = { ...u } as UserData;
     if (!enriched.prescriptions || enriched.prescriptions.length === 0) {
       enriched = {
@@ -89,7 +186,13 @@ export default function Dashboard() {
     const next = bmi && enriched.bmi !== bmi ? { ...enriched, bmi } : enriched;
     setUser(next);
     if (JSON.stringify(next) !== JSON.stringify(u)) await saveUser(next);
-  }, []);
+    console.log('Dashboard: Local data loaded successfully');
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      // On error, try to redirect to landing page
+      router.replace('/' as any);
+    }
+  }, [router]);
 
   useEffect(() => {
     load();
@@ -97,8 +200,57 @@ export default function Dashboard() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Simulate sync delay
-    await new Promise((r) => setTimeout(r, 700));
+    
+    // Try to sync from backend
+    const token = await getAccessToken();
+    if (token) {
+      const backendUser = await syncUserFromBackend();
+      
+      if (backendUser) {
+        // Map backend data to local format
+        let age: number | undefined;
+        if (backendUser.dob) {
+          const dob = new Date(backendUser.dob);
+          const now = new Date();
+          age = now.getFullYear() - dob.getFullYear();
+          const m = now.getMonth() - dob.getMonth();
+          if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+        }
+
+        const height = backendUser.height_cm ? Number(backendUser.height_cm) : undefined;
+        const weight = backendUser.weight_kg ? Number(backendUser.weight_kg) : undefined;
+        
+        let bmi: number | undefined;
+        if (height && weight) {
+          const h = height / 100;
+          bmi = Number((weight / (h * h)).toFixed(2));
+        }
+
+        const allergies = backendUser.allergies ? backendUser.allergies.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+        const conditions = backendUser.known_conditions ? backendUser.known_conditions.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+
+        const synced: UserData = {
+          ...user,
+          name: backendUser.full_name || backendUser.email || user?.name || 'User',
+          age,
+          gender: backendUser.gender ? (backendUser.gender.charAt(0).toUpperCase() + backendUser.gender.slice(1)) : user?.gender,
+          blood_group: backendUser.blood_group || user?.blood_group,
+          height_cm: height,
+          weight_kg: weight,
+          bmi,
+          allergies,
+          conditions,
+          last_sync: new Date().toISOString(),
+        } as UserData;
+
+        await saveUser(synced);
+        setUser(synced);
+        setRefreshing(false);
+        return;
+      }
+    }
+
+    // Fallback: just update last_sync timestamp
     const now = new Date().toISOString();
     const next = { ...(user ?? {}), last_sync: now } as UserData;
     await saveUser(next);
@@ -439,8 +591,8 @@ export default function Dashboard() {
                       status: 'upcoming',
                     };
                     setUser((prev) => {
-                      const base = prev ?? getSampleUser();
-                      const next: UserData = { ...base, medications: [...(base.medications ?? []), newMed] };
+                      if (!prev) return prev;
+                      const next: UserData = { ...prev, medications: [...(prev.medications ?? []), newMed] };
                       saveUser(next);
                       return next;
                     });
