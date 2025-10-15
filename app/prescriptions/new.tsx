@@ -1,4 +1,4 @@
-import { createMedication, getAccessToken } from '@/lib/api';
+import { createMedication, createPrescription, getAccessToken } from '@/lib/api';
 import { loadUser, saveUser, type Medication, type UserData } from '@/lib/storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -146,15 +146,31 @@ export default function NewPrescription() {
         savedMeds.push(...medsToAdd);
       }
 
+    // Attempt to create a prescription on backend with the full list
+    const token2 = await getAccessToken();
+    if (token2) {
+      const rxPayload = {
+        doctor: doctor.trim() || 'Unknown',
+        date: date || today,
+        medications: savedMeds,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as const;
+      try {
+        const rxRes = await createPrescription(rxPayload as any);
+        if (!rxRes.success) console.warn('Prescription: createPrescription failed:', rxRes.error);
+      } catch (e) {
+        console.warn('Prescription: createPrescription error', e);
+      }
+    }
+
     const u = await loadUser();
     const base = u ?? ({ name: 'User' } as UserData);
     const next: UserData = {
       ...base,
-        medications: [...(base.medications ?? []), ...savedMeds],
-      prescriptions: [
-        ...((base.prescriptions ?? [])),
-          { doctor: doctor.trim() || 'Unknown', date: date || today, medicine_count: savedMeds.length },
-      ],
+      medications: [...(base.medications ?? []), ...savedMeds],
+      // don't append local prescriptions list here; dashboard will refresh from backend
+      prescriptions: base.prescriptions ?? [],
     };
     await saveUser(next);
     router.replace('/dashboard' as any);

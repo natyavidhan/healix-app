@@ -1,6 +1,60 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Medication } from './storage';
 
+// ---------------- Prescriptions ----------------
+export type BackendPrescription = {
+  _id?: string;
+  user_id?: string;
+  doctor: string;
+  date: string; // YYYY-MM-DD
+  medications: Medication[];
+  created_at?: string;
+  updated_at?: string;
+};
+
+export async function createPrescription(prescription: Omit<BackendPrescription, '_id' | 'user_id'>): Promise<{
+  success: boolean;
+  prescription?: BackendPrescription;
+  error?: string;
+}> {
+  const result = await apiRequest('/prescriptions', {
+    method: 'POST',
+    body: JSON.stringify(prescription),
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      prescription: backendResponse.prescription,
+      error: backendResponse.message,
+    };
+  }
+
+  return { success: false, error: result.error || 'Failed to create prescription' };
+}
+
+export async function getPrescriptions(): Promise<{
+  success: boolean;
+  prescriptions?: BackendPrescription[];
+  error?: string;
+}> {
+  const result = await apiRequest('/prescriptions', {
+    method: 'GET',
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      prescriptions: backendResponse.prescriptions || [],
+      error: backendResponse.message,
+    };
+  }
+
+  return { success: false, prescriptions: [], error: result.error || 'Failed to get prescriptions' };
+}
+
 // Configure your Flask backend URL here
 // For local development:
 // - iOS Simulator: use 'http://localhost:5000/api'

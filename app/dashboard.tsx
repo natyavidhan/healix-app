@@ -1,4 +1,4 @@
-import { createMedication, deleteMedication as deleteMedicationAPI, getAccessToken, getMedications, syncUserFromBackend } from '@/lib/api';
+import { createMedication, deleteMedication as deleteMedicationAPI, getAccessToken, getMedications, getPrescriptions, syncUserFromBackend } from '@/lib/api';
 import i18n from '@/lib/i18n';
 import { calcBMI, clearUser, loadUser, saveUser, type Medication, type Prescription, type Reminder, type Report, type UserData } from '@/lib/storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -97,11 +97,22 @@ export default function Dashboard() {
         // Load existing local data to preserve medications, prescriptions, reports, reminders
         const existingLocal = await loadUser();
 
-          // Fetch medications from backend
-          console.log('Dashboard: Fetching medications from backend...');
-          const medsResult = await getMedications();
-          const backendMedications = medsResult.success ? medsResult.medications || [] : [];
-          console.log('Dashboard: Backend medications count:', backendMedications.length);
+        // Fetch medications from backend
+        console.log('Dashboard: Fetching medications from backend...');
+        const medsResult = await getMedications();
+        const backendMedications = medsResult.success ? medsResult.medications || [] : [];
+        console.log('Dashboard: Backend medications count:', backendMedications.length);
+
+        // Fetch prescriptions from backend
+        console.log('Dashboard: Fetching prescriptions from backend...');
+        const rxResult = await getPrescriptions();
+        const backendPrescriptionsRaw = rxResult.success ? (rxResult.prescriptions || []) : [];
+        const backendPrescriptions = backendPrescriptionsRaw.map((p, i) => ({
+          id: p._id || `rx-${i}`,
+          doctor: p.doctor,
+          date: p.date,
+          medicine_count: Array.isArray(p.medications) ? p.medications.length : 0,
+        }));
 
         const enriched: UserData = {
           name: backendUser.full_name || backendUser.email || 'User',
@@ -113,12 +124,9 @@ export default function Dashboard() {
           bmi,
           allergies,
           conditions,
-          // Preserve local app data
-            medications: backendMedications.length > 0 ? backendMedications : (existingLocal?.medications || []),
-          prescriptions: existingLocal?.prescriptions || [
-            { id: 'rx-1', doctor: 'Dr. Mehta', date: '2025-10-12', medicine_count: 3 },
-            { id: 'rx-2', doctor: 'Dr. Kapoor', date: '2025-09-28', medicine_count: 2 },
-          ],
+          // Prefer backend data; fall back to existing local
+          medications: backendMedications.length > 0 ? backendMedications : (existingLocal?.medications || []),
+          prescriptions: backendPrescriptions.length > 0 ? backendPrescriptions : (existingLocal?.prescriptions || []),
           reports: existingLocal?.reports || [
             {
               id: 'rep-1', name: 'Complete Blood Count (CBC)', date: '2025-10-10', summary: 'All parameters within normal limits.',
@@ -240,9 +248,18 @@ export default function Dashboard() {
         const allergies = backendUser.allergies ? backendUser.allergies.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
         const conditions = backendUser.known_conditions ? backendUser.known_conditions.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
 
-          // Fetch medications from backend
-          const medsResult = await getMedications();
-          const backendMedications = medsResult.success ? medsResult.medications || [] : [];
+        // Fetch medications from backend
+        const medsResult = await getMedications();
+        const backendMedications = medsResult.success ? medsResult.medications || [] : [];
+        // Fetch prescriptions from backend
+        const rxResult = await getPrescriptions();
+        const backendPrescriptionsRaw = rxResult.success ? (rxResult.prescriptions || []) : [];
+        const backendPrescriptions = backendPrescriptionsRaw.map((p, i) => ({
+          id: p._id || `rx-${i}`,
+          doctor: p.doctor,
+          date: p.date,
+          medicine_count: Array.isArray(p.medications) ? p.medications.length : 0,
+        }));
 
         const synced: UserData = {
           ...user,
@@ -256,6 +273,7 @@ export default function Dashboard() {
           allergies,
           conditions,
             medications: backendMedications.length > 0 ? backendMedications : user?.medications,
+          prescriptions: backendPrescriptions.length > 0 ? backendPrescriptions : user?.prescriptions,
           last_sync: new Date().toISOString(),
         } as UserData;
 
