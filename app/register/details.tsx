@@ -250,9 +250,9 @@ export default function RegisterDetails() {
                 value={details.physical_activity}
                 onChange={(v) => setDetailsState((s) => ({ ...s, physical_activity: v as any }))}
                 options={[
-                  { label: 'Low', value: 'low' },
-                  { label: 'Moderate', value: 'moderate' },
-                  { label: 'High', value: 'high' },
+                  { label: 'Low - < 30 min/week', value: 'low' },
+                  { label: 'Moderate - 30-60 min/week', value: 'moderate' },
+                  { label: 'High - > 60 min/week', value: 'high' },
                 ]}
                 placeholder="Select activity"
                 containerStyle={{ zIndex: 16 }}

@@ -325,6 +325,12 @@ export default function Dashboard() {
               <Text style={styles.sectionSubtitle}>{t('app.welcome')}</Text>
             </View>
             <Pressable
+              onPress={() => router.push('/add-doctor' as any)}
+              accessibilityLabel="Add Doctor"
+              style={({ pressed }) => [{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#0ea5e9', alignItems: 'center', justifyContent: 'center', marginRight: 8 }, pressed && { opacity: 0.85 }]}>
+              <Ionicons name="person-add-outline" size={20} color="#fff" />
+            </Pressable>
+            <Pressable
               onPress={() => setDetailsVisible(true)}
               style={({ pressed }) => [styles.avatarButton, pressed && { opacity: 0.8 }]}>
               <Text style={styles.avatarText}>{user.name?.[0]?.toUpperCase() ?? 'U'}</Text>

@@ -62,6 +62,7 @@ export async function getPrescriptions(): Promise<{
 // - Physical device: use your computer's local IP, e.g., 'http://192.168.1.100:5000/api'
 // - Production: use your deployed server URL
 const API_BASE_URL = 'http://172.2.2.171:5000/api';
+export const WEB_BASE_URL = API_BASE_URL.replace(/\/?api\/?$/, '');
 
 const TOKEN_KEY = 'healix:access_token';
 const REFRESH_TOKEN_KEY = 'healix:refresh_token';
