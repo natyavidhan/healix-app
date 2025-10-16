@@ -1,7 +1,9 @@
+import { aiIngest, askAI } from '@/lib/api';
 import { calcBMI, loadUser, type UserData } from '@/lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Msg = { id: string; role: 'user' | 'assistant'; text: string; ts: number };
 
@@ -15,6 +17,7 @@ const Pastel = {
 };
 
 export default function Chat() {
+  const insets = useSafeAreaInsets();
   const [user, setUser] = useState<UserData | null>(null);
   const [messages, setMessages] = useState<Msg[]>([{
     id: 'm-hello', role: 'assistant', ts: Date.now(),
@@ -23,6 +26,7 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const [inputBarH, setInputBarH] = useState(0);
 
   useEffect(() => { loadUser().then(setUser); }, []);
 
@@ -30,7 +34,7 @@ export default function Chat() {
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
   };
 
-  const send = () => {
+  const send = async () => {
     const text = input.trim();
     if (!text || isTyping) return;
     const userMsg: Msg = { id: `m-${Date.now()}`, role: 'user', text, ts: Date.now() };
@@ -38,22 +42,44 @@ export default function Chat() {
     setInput('');
     setIsTyping(true);
     scrollToEnd();
-
-    setTimeout(() => {
-      const reply = generateReply(text, user);
-      const botMsg: Msg = { id: `m-${Date.now()}-bot`, role: 'assistant', text: reply, ts: Date.now() };
+    // Ensure index exists (best-effort, no spam): try ingest once per session when empty
+    try {
+      // Optionally, you could gate this with a flag in state/localStorage
+      await aiIngest();
+    } catch {}
+    try {
+      const res = await askAI(text, 5);
+      const replyText = res.success && res.answer ? res.answer : (res.error || 'AI is unavailable right now.');
+      const botMsg: Msg = { id: `m-${Date.now()}-bot`, role: 'assistant', text: replyText, ts: Date.now() };
       setMessages((prev) => [...prev, botMsg]);
+    } catch (e) {
+      const botMsg: Msg = { id: `m-${Date.now()}-bot`, role: 'assistant', text: 'Network error while contacting AI.', ts: Date.now() };
+      setMessages((prev) => [...prev, botMsg]);
+    } finally {
       setIsTyping(false);
       scrollToEnd();
-    }, 700);
+    }
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#fff' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: '#fff' }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
       <View style={styles.header}> 
         <Text style={styles.headerTitle}>AI Health Assistant</Text>
       </View>
-      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.chatContent} onContentSizeChange={scrollToEnd}>
+      <ScrollView
+        ref={scrollRef}
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[
+          styles.chatContent,
+          { paddingBottom: (inputBarH || 72) + insets.bottom + 8 },
+        ]}
+        onContentSizeChange={scrollToEnd}
+      >
         {messages.map((m) => (
           <View key={m.id} style={[styles.msgRow, m.role === 'user' ? styles.right : styles.left]}>
             <View style={[styles.bubble, m.role === 'user' ? styles.userBubble : styles.botBubble]}> 
@@ -69,7 +95,7 @@ export default function Chat() {
           </View>
         ) : null}
       </ScrollView>
-      <View style={styles.inputBar}>
+      <View style={[styles.inputBar, { paddingBottom: 10 + insets.bottom }]} onLayout={(e) => setInputBarH(e.nativeEvent.layout.height)}>
         <TextInput
           style={styles.input}
           value={input}
@@ -77,6 +103,9 @@ export default function Chat() {
           placeholder="Type a message"
           placeholderTextColor={Pastel.grayText}
           multiline
+          keyboardAppearance={Platform.OS === 'ios' ? 'default' : undefined}
+          returnKeyType="send"
+          blurOnSubmit={false}
         />
         <Pressable onPress={send} disabled={!input.trim()} style={({ pressed }) => [styles.sendBtn, (!input.trim() || isTyping) && { opacity: 0.5 }, pressed && { opacity: 0.85 }]}>
           <Ionicons name="send" size={18} color="#fff" />
@@ -129,7 +158,7 @@ const styles = StyleSheet.create({
   botBubble: { backgroundColor: '#F5F6F8', borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border, borderTopLeftRadius: 4 },
   userBubble: { backgroundColor: Pastel.blue, borderTopRightRadius: 4 },
   msgText: { fontSize: 15 },
-  inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: Platform.OS === 'web' ? (1 as any) : StyleSheet.hairlineWidth, borderColor: Pastel.border, backgroundColor: '#fff' },
+  inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingTop: 10, borderTopWidth: Platform.OS === 'web' ? (1 as any) : StyleSheet.hairlineWidth, borderColor: Pastel.border, backgroundColor: '#fff' },
   input: { flex: 1, maxHeight: 120, borderWidth: Platform.OS === 'web' ? (1 as any) : StyleSheet.hairlineWidth, borderColor: Pastel.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: Pastel.text },
   sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: Pastel.teal },
 });

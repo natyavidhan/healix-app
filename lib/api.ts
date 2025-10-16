@@ -607,3 +607,40 @@ export async function getReports(): Promise<{
 
   return { success: false, reports: [], error: result.error || 'Failed to get reports' };
 }
+
+// ---------------- AI Chat ----------------
+export async function aiIngest(): Promise<{ success: boolean; stats?: any; error?: string }> {
+  const result = await apiRequest('/ai/ingest', { method: 'POST' });
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      stats: backendResponse.stats,
+      error: backendResponse.message,
+    };
+  }
+  return { success: false, error: result.error || 'Failed to ingest AI index' };
+}
+
+export async function askAI(query: string, k: number = 5): Promise<{
+  success: boolean;
+  answer?: string;
+  sources?: Array<{ text: string; score: number; meta: any }>;
+  error?: string;
+}> {
+  const result = await apiRequest('/ai/chat', {
+    method: 'POST',
+    body: JSON.stringify({ query, k }),
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      answer: backendResponse.answer,
+      sources: backendResponse.sources,
+      error: backendResponse.message,
+    };
+  }
+  return { success: false, error: result.error || 'AI chat failed' };
+}
