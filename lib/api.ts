@@ -61,7 +61,7 @@ export async function getPrescriptions(): Promise<{
 // - Android Emulator: use 'http://10.0.2.2:5000/api'
 // - Physical device: use your computer's local IP, e.g., 'http://192.168.1.100:5000/api'
 // - Production: use your deployed server URL
-const API_BASE_URL = 'http://192.168.1.35:5000/api';
+const API_BASE_URL = 'http://172.2.2.171:5000/api';
 
 const TOKEN_KEY = 'healix:access_token';
 const REFRESH_TOKEN_KEY = 'healix:refresh_token';

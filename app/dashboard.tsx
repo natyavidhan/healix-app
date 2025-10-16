@@ -331,7 +331,7 @@ export default function Dashboard() {
             </Pressable>
             <Pressable
                 onPress={() => {
-                  const order = ['en','hi','ta'] as const;
+                  const order = ['en','hi'] as const;
                   const idx = order.indexOf(i18n.language as any);
                   const next = order[(idx + 1) % order.length];
                   i18n.changeLanguage(next);

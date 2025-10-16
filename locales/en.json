@@ -1,4 +1,4 @@
-{
+﻿{
   "app": {
     "title": "Healix",
     "welcome": "Welcome to Healix",
@@ -8,12 +8,25 @@
     "add": "Add",
     "cancel": "Cancel",
     "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "confirm": "Confirm",
     "openPdf": "Open PDF",
     "openFile": "Open File",
     "chooseFile": "Choose file (PDF/Image)",
-    "loading": "Loading…",
+    "loading": "Loading",
     "notFound": "Not found.",
-    "backToDashboard": "Back to Dashboard"
+    "backToDashboard": "Back to Dashboard",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "landing": {
+    "title": "healix",
+    "signInEmail": "Sign in with Email",
+    "signInGoogle": "Sign in with Google"
   },
   "dashboard": {
     "activeMeds": "Active Medications",
@@ -23,7 +36,7 @@
     "addReport": "+ Add Report",
     "addPrescriptionDesc": "Create a new prescription entry",
     "addReportDesc": "Upload a lab report (PDF/Image)",
-    "remindersToday": "Today’s reminders",
+    "remindersToday": "Today's reminders",
     "noReminders": "No reminders for today",
     "markDone": "Mark as Done",
     "done": "Done",
@@ -31,7 +44,9 @@
     "offlineNever": "Offline Mode: Never synced",
     "offlineAgo": "Offline Mode: Last synced {{minutes}}m ago",
     "logout": "Logout",
-    "details": "Health Details"
+    "details": "Health Details",
+    "medicines": "medicines",
+    "noMedicationsFound": "No associated medicines found."
   },
   "reports": {
     "title": "Lab Report",
@@ -47,18 +62,72 @@
     "onlyUploads": "Only uploads are allowed for lab reports.",
     "reportName": "Report name",
     "reportDate": "Date",
-    "saveReport": "Save Report"
+    "saveReport": "Save Report",
+    "test": "Test",
+    "result": "Result",
+    "units": "Units",
+    "reference": "Reference",
+    "addTest": "Add Test",
+    "removeTest": "Remove Test",
+    "extracting": "Extracting data from file",
+    "uploadAndParse": "Upload & Parse",
+    "chooseReport": "Please choose a PDF or image of the report."
   },
   "prescriptions": {
     "title": "Prescription",
     "medicines": "Medicines",
     "doctor": "Doctor",
-    "totalMeds": "Total medicines"
+    "totalMeds": "Total medicines",
+    "newPrescription": "New Prescription",
+    "uploadTab": "Upload",
+    "manualTab": "Manual",
+    "doctorName": "Doctor's name",
+    "prescriptionDate": "Prescription date",
+    "medicineName": "Medicine name",
+    "brandName": "Brand name (optional)",
+    "form": "Form",
+    "tablet": "Tablet",
+    "syrup": "Syrup",
+    "capsule": "Capsule",
+    "injection": "Injection",
+    "strength": "Strength (e.g., 10 mg)",
+    "dosage": "Dosage (e.g., 1 tablet)",
+    "frequencyPerDay": "Frequency per day",
+    "times": "Times (comma-separated, e.g., 08:00, 20:00)",
+    "durationDays": "Duration (days)",
+    "startDate": "Start date",
+    "instructions": "Instructions",
+    "addMedicine": "Add Medicine",
+    "removeMedicine": "Remove Medicine",
+    "savePrescription": "Save Prescription",
+    "uploadAndExtract": "Upload & Extract",
+    "extracting": "Extracting data from prescription",
+    "switchToManual": "Please use the Upload button above to pick and parse a file, then review in Manual tab.",
+    "atLeastOneMed": "Add at least one medication.",
+    "medNameRequired": "Each medication requires a name.",
+    "frequencyRequired": "Each medication needs frequency per day.",
+    "timesRequired": "Each medication needs intake times.",
+    "durationRequired": "Each medication needs duration in days.",
+    "startDateRequired": "Each medication needs a start date.",
+    "perDay": "x/day",
+    "days": "days",
+    "notes": "Notes",
+    "source": "Source",
+    "status": "Status",
+    "noFileSelected": "No file selected",
+    "failedToParse": "Failed to parse file",
+    "failedToUpload": "Failed to upload or parse file"
+  },
+  "medication": {
+    "nextDose": "Next",
+    "status": "Status",
+    "active": "Active",
+    "completed": "Completed",
+    "paused": "Paused"
   },
   "language": {
     "english": "English",
     "hindi": "Hindi",
-    "tamil": "Tamil",
     "switch": "Language"
   }
 }

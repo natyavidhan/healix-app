@@ -4,6 +4,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { useTranslation } = require('react-i18next/dist/commonjs');
 
 type ManualMed = {
   name: string;
@@ -28,6 +30,7 @@ const Pastel = {
 };
 
 export default function NewPrescription() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [tab, setTab] = useState<'upload' | 'manual'>('manual');
   const [doctor, setDoctor] = useState('');
@@ -74,7 +77,7 @@ export default function NewPrescription() {
     setError(null);
     if (tab === 'upload') {
       // If user is on upload tab and hasn't populated fields yet, prompt to switch to Manual after upload.
-      setError('Please use the Upload button above to pick and parse a file, then review in Manual tab.');
+      setError(t('prescriptions.switchToManual'));
       return;
     }
     const cleaned = rows.map((r) => ({
@@ -89,13 +92,13 @@ export default function NewPrescription() {
       start_date: r.start_date.trim(),
       instructions: r.instructions.trim(),
     }));
-    if (!cleaned.length) return setError('Add at least one medication.');
+    if (!cleaned.length) return setError(t('prescriptions.atLeastOneMed'));
     for (const r of cleaned) {
-      if (!r.name) return setError('Each medication requires a name.');
-      if (!r.frequency_per_day) return setError('Each medication needs frequency per day.');
-      if (!r.times) return setError('Each medication needs intake times.');
-      if (!r.duration_days) return setError('Each medication needs duration in days.');
-      if (!r.start_date) return setError('Each medication needs a start date.');
+      if (!r.name) return setError(t('prescriptions.medNameRequired'));
+      if (!r.frequency_per_day) return setError(t('prescriptions.frequencyRequired'));
+      if (!r.times) return setError(t('prescriptions.timesRequired'));
+      if (!r.duration_days) return setError(t('prescriptions.durationRequired'));
+      if (!r.start_date) return setError(t('prescriptions.startDateRequired'));
     }
 
     const medsToAdd: Medication[] = cleaned.map((r) => {
@@ -181,21 +184,21 @@ export default function NewPrescription() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Add Prescription</Text>
+        <Text style={styles.title}>{t('prescriptions.newPrescription')}</Text>
 
         <View style={styles.segmentedContainer}>
           <Pressable onPress={() => setTab('upload')} style={[styles.segment, tab === 'upload' && styles.segmentActive]}>
-            <Text style={[styles.segmentText, tab === 'upload' && styles.segmentTextActive]}>Upload</Text>
+            <Text style={[styles.segmentText, tab === 'upload' && styles.segmentTextActive]}>{t('prescriptions.uploadTab')}</Text>
           </Pressable>
           <Pressable onPress={() => setTab('manual')} style={[styles.segment, tab === 'manual' && styles.segmentActive]}>
-            <Text style={[styles.segmentText, tab === 'manual' && styles.segmentTextActive]}>Manual</Text>
+            <Text style={[styles.segmentText, tab === 'manual' && styles.segmentTextActive]}>{t('prescriptions.manualTab')}</Text>
           </Pressable>
         </View>
 
         {tab === 'upload' ? (
           <View style={styles.uploadCard}>
-            <Text style={styles.uploadTitle}>Upload prescription file</Text>
-            <Text style={styles.hint}>Pick a PDF/Image to auto-fill the form. You can edit after parsing.</Text>
+            <Text style={styles.uploadTitle}>{t('prescriptions.uploadAndExtract')}</Text>
+            <Text style={styles.hint}>{t('prescriptions.extracting')}</Text>
             <Pressable
               style={({ pressed }) => [styles.uploadBtn, pressed && { opacity: 0.9 }, uploading && { opacity: 0.7 }]}
               disabled={uploading}
@@ -210,7 +213,7 @@ export default function NewPrescription() {
                   if (res.canceled) return;
                   const file = res.assets?.[0];
                   if (!file) {
-                    setError('No file selected');
+                    setError(t('prescriptions.noFileSelected'));
                     return;
                   }
 
@@ -232,7 +235,7 @@ export default function NewPrescription() {
 
                   const resp = await uploadPrescriptionFormData(form as any);
                   if (!resp.success || !resp.extracted) {
-                    setError(resp.error || 'Failed to parse file');
+                    setError(resp.error || t('prescriptions.failedToParse'));
                     return;
                   }
 
@@ -261,45 +264,45 @@ export default function NewPrescription() {
                   setTab('manual');
                 } catch (e: any) {
                   console.warn('Upload parse error', e);
-                  setError('Failed to upload or parse file');
+                  setError(t('prescriptions.failedToUpload'));
                 } finally {
                   setUploading(false);
                 }
               }}
             >
-              <Text style={styles.uploadBtnText}>{uploading ? 'Uploading...' : 'Pick File'}</Text>
+              <Text style={styles.uploadBtnText}>{uploading ? t('prescriptions.extracting') : t('common.chooseFile')}</Text>
             </Pressable>
           </View>
         ) : (
           <View style={styles.manualCard}>
-            <Text style={styles.sectionTitle}>Prescription info</Text>
+            <Text style={styles.sectionTitle}>{t('prescriptions.title')}</Text>
             <View style={styles.rowWrap}>
               <View style={styles.field}> 
-                <Text style={styles.label}>Doctor name</Text>
+                <Text style={styles.label}>{t('prescriptions.doctorName')}</Text>
                 <TextInput value={doctor} onChangeText={setDoctor} placeholder="Dr. Sharma" style={styles.input} />
               </View>
               <View style={styles.field}> 
-                <Text style={styles.label}>Date</Text>
+                <Text style={styles.label}>{t('prescriptions.prescriptionDate')}</Text>
                 <TextInput value={date} onChangeText={setDate} placeholder={today} style={styles.input} inputMode={Platform.OS === 'web' ? 'text' as any : undefined} />
               </View>
             </View>
 
-            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Medications</Text>
+            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>{t('prescriptions.medicines')}</Text>
             {rows.map((r, idx) => (
               <View key={idx} style={styles.medRow}> 
                 <View style={styles.rowWrap}>
                   <View style={styles.fieldWide}> 
-                    <Text style={styles.label}>Name *</Text>
+                    <Text style={styles.label}>{t('prescriptions.medicineName')} *</Text>
                     <TextInput value={r.name} onChangeText={(v) => updateRow(idx, { name: v })} placeholder="Paracetamol" style={styles.input} />
                   </View>
                   <View style={styles.field}> 
-                    <Text style={styles.label}>Brand name</Text>
+                    <Text style={styles.label}>{t('prescriptions.brandName')}</Text>
                     <TextInput value={r.brand_name} onChangeText={(v) => updateRow(idx, { brand_name: v })} placeholder="Calpol 500" style={styles.input} />
                   </View>
                 </View>
                 <View style={styles.rowWrap}>
                   <View style={styles.fieldSmall}> 
-                    <Text style={styles.label}>Form</Text>
+                    <Text style={styles.label}>{t('prescriptions.form')}</Text>
                     <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
                       {(['tablet', 'syrup', 'capsule', 'injection'] as const).map((f) => (
                         <Pressable
@@ -312,7 +315,7 @@ export default function NewPrescription() {
                           ]}
                         >
                           <Text style={[styles.formChipText, r.form === f && styles.formChipTextActive]}>
-                            {f.charAt(0).toUpperCase() + f.slice(1)}
+                            {t(`prescriptions.${f}`)}
                           </Text>
                         </Pressable>
                       ))}
@@ -321,47 +324,47 @@ export default function NewPrescription() {
                 </View>
                 <View style={styles.rowWrap}>
                   <View style={styles.fieldSmall}> 
-                    <Text style={styles.label}>Strength</Text>
+                    <Text style={styles.label}>{t('prescriptions.strength')}</Text>
                     <TextInput value={r.strength} onChangeText={(v) => updateRow(idx, { strength: v })} placeholder="500mg" style={styles.input} />
                   </View>
                   <View style={styles.fieldSmall}> 
-                    <Text style={styles.label}>Dosage</Text>
+                    <Text style={styles.label}>{t('prescriptions.dosage')}</Text>
                     <TextInput value={r.dosage} onChangeText={(v) => updateRow(idx, { dosage: v })} placeholder="1 tablet" style={styles.input} />
                   </View>
                   <View style={styles.fieldSmall}> 
-                    <Text style={styles.label}>Freq/day *</Text>
+                    <Text style={styles.label}>{t('prescriptions.frequencyPerDay')} *</Text>
                     <TextInput value={r.frequency_per_day} onChangeText={(v) => updateRow(idx, { frequency_per_day: v.replace(/[^0-9]/g, '') })} placeholder="2" keyboardType="numeric" style={styles.input} />
                   </View>
                 </View>
                 <View style={styles.rowWrap}>
                   <View style={styles.field}> 
-                    <Text style={styles.label}>Times (HH:MM, comma-sep) *</Text>
+                    <Text style={styles.label}>{t('prescriptions.times')} *</Text>
                     <TextInput value={r.times} onChangeText={(v) => updateRow(idx, { times: v })} placeholder="08:00, 20:00" style={styles.input} />
                   </View>
                   <View style={styles.fieldSmall}> 
-                    <Text style={styles.label}>Duration (days) *</Text>
+                    <Text style={styles.label}>{t('prescriptions.durationDays')} *</Text>
                     <TextInput value={r.duration_days} onChangeText={(v) => updateRow(idx, { duration_days: v.replace(/[^0-9]/g, '') })} placeholder="5" keyboardType="numeric" style={styles.input} />
                   </View>
                   <View style={styles.field}> 
-                    <Text style={styles.label}>Start date *</Text>
+                    <Text style={styles.label}>{t('prescriptions.startDate')} *</Text>
                     <TextInput value={r.start_date} onChangeText={(v) => updateRow(idx, { start_date: v })} placeholder="YYYY-MM-DD" style={styles.input} />
                   </View>
                 </View>
                 <View style={styles.rowWrap}>
                   <View style={styles.fieldWide}> 
-                    <Text style={styles.label}>Instructions</Text>
+                    <Text style={styles.label}>{t('prescriptions.instructions')}</Text>
                     <TextInput value={r.instructions} onChangeText={(v) => updateRow(idx, { instructions: v })} placeholder="After food" style={styles.input} multiline />
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 }}>
                   <Pressable onPress={() => removeRow(idx)} style={({ pressed }) => [styles.removeBtn, pressed && { opacity: 0.9 }]}>
-                    <Text style={styles.removeText}>Remove</Text>
+                    <Text style={styles.removeText}>{t('prescriptions.removeMedicine')}</Text>
                   </Pressable>
                 </View>
               </View>
             ))}
             <Pressable onPress={addRow} style={({ pressed }) => [styles.addRowBtn, pressed && { opacity: 0.9 }]}>
-              <Text style={styles.addRowText}>+ Add another medication</Text>
+              <Text style={styles.addRowText}>{t('prescriptions.addMedicine')}</Text>
             </Pressable>
           </View>
         )}
@@ -371,10 +374,10 @@ export default function NewPrescription() {
         <View style={{ height: 10 }} />
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text style={styles.cancelText}>{t('common.cancel')}</Text>
           </Pressable>
           <Pressable onPress={onSave} style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.saveText}>Save Prescription</Text>
+            <Text style={styles.saveText}>{t('prescriptions.savePrescription')}</Text>
           </Pressable>
         </View>
       </ScrollView>

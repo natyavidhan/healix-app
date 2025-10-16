@@ -2,8 +2,11 @@ import { loadUser } from '@/lib/storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { useTranslation } = require('react-i18next/dist/commonjs');
 
 export default function Landing() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
@@ -26,27 +29,27 @@ export default function Landing() {
   if (checking) {
     return (
       <View style={[styles.container, { backgroundColor: '#fff' }]}> 
-        <Text style={[styles.title, { color: '#11181C' }]}>healix</Text>
-        <Text style={{ color: '#6B7280' }}>Loading…</Text>
+        <Text style={[styles.title, { color: '#11181C' }]}>{t('landing.title')}</Text>
+        <Text style={{ color: '#6B7280' }}>{t('common.loading')}</Text>
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: '#fff' }]}>
-      <Text style={[styles.title, { color: '#11181C' }]}>healix</Text>
+      <Text style={[styles.title, { color: '#11181C' }]}>{t('landing.title')}</Text>
 
       <View style={styles.buttons}>
         <Pressable
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           onPress={() => router.push('/signin/email')}>
-          <Text style={styles.buttonText}>Sign in with Email</Text>
+          <Text style={styles.buttonText}>{t('landing.signInEmail')}</Text>
         </Pressable>
 
         <Pressable
           style={({ pressed }) => [styles.button, styles.googleButton, pressed && styles.buttonPressed]}
           onPress={() => router.push('/signin/google')}>
-          <Text style={[styles.buttonText, styles.googleText]}>Sign in with Google</Text>
+          <Text style={[styles.buttonText, styles.googleText]}>{t('landing.signInGoogle')}</Text>
         </Pressable>
       </View>
     </View>
