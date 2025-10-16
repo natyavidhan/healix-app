@@ -1,4 +1,4 @@
-import { createMedication, deleteMedication as deleteMedicationAPI, getAccessToken, getMedications, getPrescriptions, syncUserFromBackend } from '@/lib/api';
+import { createMedication, deleteMedication as deleteMedicationAPI, deletePrescription as deletePrescriptionAPI, deleteReport as deleteReportAPI, getAccessToken, getMedications, getPrescriptions, getReports, syncUserFromBackend } from '@/lib/api';
 import i18n from '@/lib/i18n';
 import { calcBMI, clearUser, loadUser, saveUser, type Medication, type Prescription, type Reminder, type Report, type UserData } from '@/lib/storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,6 +46,10 @@ export default function Dashboard() {
   const [medError, setMedError] = useState<string | null>(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const [rxDeleteConfirmVisible, setRxDeleteConfirmVisible] = useState(false);
+  const [rxDeleteIndex, setRxDeleteIndex] = useState<number | null>(null);
+  const [repDeleteConfirmVisible, setRepDeleteConfirmVisible] = useState(false);
+  const [repDeleteIndex, setRepDeleteIndex] = useState<number | null>(null);
 
   // FAB bounce animation
   const bounce = useSharedValue(0);
@@ -114,7 +118,25 @@ export default function Dashboard() {
           medicine_count: Array.isArray(p.medications) ? p.medications.length : 0,
         }));
 
-        const enriched: UserData = {
+        // Fetch reports from backend
+        console.log('Dashboard: Fetching reports from backend...');
+        const repResult = await getReports();
+        const backendReportsRaw = repResult.success ? (repResult.reports || []) : [];
+        const backendReports = backendReportsRaw.map((r: any, i: number) => ({
+          id: r._id || `rep-${i}`,
+          name: r.name,
+          date: r.date,
+          summary: r.summary,
+          file_uri: r.file_uri,
+          mime_type: r.mime_type,
+          size_bytes: r.size_bytes,
+          // If backend later stores structured values, map them
+          values: Array.isArray(r.tests)
+            ? r.tests.map((t: any) => ({ name: t.name, value: String(t.result ?? ''), unit: t.units ?? undefined, ref: t.reference ?? undefined }))
+            : undefined,
+        }));
+
+  const enriched: UserData = {
           name: backendUser.full_name || backendUser.email || 'User',
           age,
           gender: backendUser.gender ? (backendUser.gender.charAt(0).toUpperCase() + backendUser.gender.slice(1)) : undefined,
@@ -127,23 +149,7 @@ export default function Dashboard() {
           // Prefer backend data; fall back to existing local
           medications: backendMedications.length > 0 ? backendMedications : (existingLocal?.medications || []),
           prescriptions: backendPrescriptions.length > 0 ? backendPrescriptions : (existingLocal?.prescriptions || []),
-          reports: existingLocal?.reports || [
-            {
-              id: 'rep-1', name: 'Complete Blood Count (CBC)', date: '2025-10-10', summary: 'All parameters within normal limits.',
-              values: [
-                { name: 'Hemoglobin', value: '13.8', unit: 'g/dL', ref: '13.5–17.5', flag: 'normal' },
-                { name: 'WBC', value: '6.5', unit: 'x10^3/µL', ref: '4.0–11.0', flag: 'normal' },
-                { name: 'Platelets', value: '250', unit: 'x10^3/µL', ref: '150–400', flag: 'normal' },
-              ],
-            },
-            {
-              id: 'rep-2', name: 'Lipid Profile', date: '2025-09-22', summary: 'Desirable lipid profile.',
-              values: [
-                { name: 'Total Cholesterol', value: '178', unit: 'mg/dL', ref: '< 200', flag: 'normal' },
-                { name: 'LDL-C', value: '98', unit: 'mg/dL', ref: '< 100', flag: 'normal' },
-              ],
-            },
-          ],
+          reports: backendReports.length > 0 ? backendReports : (existingLocal?.reports || []),
           reminders: existingLocal?.reminders || [],
           last_sync: new Date().toISOString(),
         };
@@ -177,29 +183,7 @@ export default function Dashboard() {
         ],
       };
     }
-    // ensure we have 1-2 demo lab reports if none exist
-    if (!enriched.reports || enriched.reports.length === 0) {
-      enriched = {
-        ...enriched,
-        reports: [
-          {
-            id: 'rep-1', name: 'Complete Blood Count (CBC)', date: '2025-10-10', summary: 'All parameters within normal limits.',
-            values: [
-              { name: 'Hemoglobin', value: '13.8', unit: 'g/dL', ref: '13.5–17.5', flag: 'normal' },
-              { name: 'WBC', value: '6.5', unit: 'x10^3/µL', ref: '4.0–11.0', flag: 'normal' },
-              { name: 'Platelets', value: '250', unit: 'x10^3/µL', ref: '150–400', flag: 'normal' },
-            ],
-          },
-          {
-            id: 'rep-2', name: 'Lipid Profile', date: '2025-09-22', summary: 'Desirable lipid profile.',
-            values: [
-              { name: 'Total Cholesterol', value: '178', unit: 'mg/dL', ref: '< 200', flag: 'normal' },
-              { name: 'LDL-C', value: '98', unit: 'mg/dL', ref: '< 100', flag: 'normal' },
-            ],
-          },
-        ],
-      };
-    }
+    // do not inject default demo lab reports
     // fill calculated BMI if possible
     const bmi = calcBMI(enriched.height_cm, enriched.weight_kg);
     const next = bmi && enriched.bmi !== bmi ? { ...enriched, bmi } : enriched;
@@ -413,13 +397,20 @@ export default function Dashboard() {
               <Text style={styles.listSubtitle}>{t('dashboard.addPrescriptionDesc')}</Text>
             </Pressable>
             {prescriptions.map((p, i) => (
-              <Pressable key={p.id ?? `rx-${i}`} onPress={() => router.push(`/prescriptions/${p.id ?? i}` as any)} style={({ pressed }) => [styles.listCard, pressed && { opacity: 0.9 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={styles.listTitle}>Dr. {p.doctor}</Text>
-                  <Text style={styles.listDate}>{p.date}</Text>
+              <View key={p.id ?? `rx-${i}`} style={styles.listCard}>
+                <Pressable onPress={() => router.push(`/prescriptions/${p.id ?? i}` as any)} style={({ pressed }) => [pressed && { opacity: 0.9 }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={styles.listTitle}>Dr. {p.doctor}</Text>
+                    <Text style={styles.listDate}>{p.date}</Text>
+                  </View>
+                  <Text style={styles.listSubtitle}>{p.medicine_count} medicines</Text>
+                </Pressable>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <Pressable accessibilityLabel={`Delete prescription ${p.doctor}`} onPress={() => { setRxDeleteIndex(i); setRxDeleteConfirmVisible(true); }} style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.8 }]}>
+                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  </Pressable>
                 </View>
-                <Text style={styles.listSubtitle}>{p.medicine_count} medicines</Text>
-              </Pressable>
+              </View>
             ))}
           </View>
         ) : (
@@ -429,13 +420,20 @@ export default function Dashboard() {
               <Text style={styles.listSubtitle}>{t('dashboard.addReportDesc')}</Text>
             </Pressable>
             {reports.map((r, i) => (
-              <Pressable key={r.id ?? `rep-${i}`} onPress={() => router.push(`/reports/${r.id ?? i}` as any)} style={({ pressed }) => [styles.listCard, pressed && { opacity: 0.9 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={styles.listTitle}>{r.name}</Text>
-                  <Text style={styles.listDate}>{r.date}</Text>
+              <View key={r.id ?? `rep-${i}`} style={styles.listCard}>
+                <Pressable onPress={() => router.push(`/reports/${r.id ?? i}` as any)} style={({ pressed }) => [pressed && { opacity: 0.9 }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={styles.listTitle}>{r.name}</Text>
+                    <Text style={styles.listDate}>{r.date}</Text>
+                  </View>
+                  <Text style={styles.listSubtitle}>{r.summary}</Text>
+                </Pressable>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <Pressable accessibilityLabel={`Delete report ${r.name}`} onPress={() => { setRepDeleteIndex(i); setRepDeleteConfirmVisible(true); }} style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.8 }]}>
+                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  </Pressable>
                 </View>
-                <Text style={styles.listSubtitle}>{r.summary}</Text>
-              </Pressable>
+              </View>
             ))}
           </View>
         )}
@@ -498,6 +496,94 @@ export default function Dashboard() {
               <DetailRow label="Allergies" value={(user.allergies && user.allergies.length) ? user.allergies.join(', ') : 'None'} />
               <DetailRow label="Conditions" value={(user.conditions && user.conditions.length) ? user.conditions.join(', ') : 'None'} />
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Report Confirm Modal */}
+      <Modal visible={repDeleteConfirmVisible} animationType="fade" transparent onRequestClose={() => setRepDeleteConfirmVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Delete report?</Text>
+            <Text style={{ color: Pastel.grayText, marginTop: 6 }}>This action can’t be undone.</Text>
+            {repDeleteIndex != null && reports[repDeleteIndex] ? (
+              <View style={{ marginTop: 10, padding: 10, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border }}>
+                <Text style={{ color: Pastel.text, fontWeight: '700' }}>{reports[repDeleteIndex].name}</Text>
+                <Text style={{ color: Pastel.grayText }}>{reports[repDeleteIndex].date}</Text>
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <Pressable onPress={() => { setRepDeleteConfirmVisible(false); setRepDeleteIndex(null); }} style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.9 }]}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={async () => {
+                if (repDeleteIndex == null) return;
+                const rep = reports[repDeleteIndex];
+                const token = await getAccessToken();
+                if (token && rep.id) {
+                  console.log('Dashboard: Deleting report from backend...');
+                  const result = await deleteReportAPI(rep.id);
+                  if (!result.success) {
+                    console.warn('Dashboard: Failed to delete report backend:', result.error);
+                  }
+                }
+                setUser((prev) => {
+                  if (!prev) return prev;
+                  const nextReports = (prev.reports ?? []).filter((_, idx) => idx !== repDeleteIndex);
+                  const next = { ...prev, reports: nextReports } as UserData;
+                  saveUser(next);
+                  return next;
+                });
+                setRepDeleteConfirmVisible(false);
+                setRepDeleteIndex(null);
+              }} style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.9 }]}>
+                <Text style={styles.deleteText}>Delete</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Prescription Confirm Modal */}
+      <Modal visible={rxDeleteConfirmVisible} animationType="fade" transparent onRequestClose={() => setRxDeleteConfirmVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Delete prescription?</Text>
+            <Text style={{ color: Pastel.grayText, marginTop: 6 }}>This action can’t be undone.</Text>
+            {rxDeleteIndex != null && prescriptions[rxDeleteIndex] ? (
+              <View style={{ marginTop: 10, padding: 10, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: Platform.OS === 'web' ? (1 as any) : 0, borderColor: Pastel.border }}>
+                <Text style={{ color: Pastel.text, fontWeight: '700' }}>Dr. {prescriptions[rxDeleteIndex].doctor}</Text>
+                <Text style={{ color: Pastel.grayText }}>{prescriptions[rxDeleteIndex].date} • {prescriptions[rxDeleteIndex].medicine_count} medicines</Text>
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <Pressable onPress={() => { setRxDeleteConfirmVisible(false); setRxDeleteIndex(null); }} style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.9 }]}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={async () => {
+                if (rxDeleteIndex == null) return;
+                const rx = prescriptions[rxDeleteIndex];
+                const token = await getAccessToken();
+                if (token && rx.id) {
+                  console.log('Dashboard: Deleting prescription from backend...');
+                  const result = await deletePrescriptionAPI(rx.id);
+                  if (!result.success) {
+                    console.warn('Dashboard: Failed to delete prescription backend:', result.error);
+                  }
+                }
+                setUser((prev) => {
+                  if (!prev) return prev;
+                  const nextRx = (prev.prescriptions ?? []).filter((_, idx) => idx !== rxDeleteIndex);
+                  const next = { ...prev, prescriptions: nextRx } as UserData;
+                  saveUser(next);
+                  return next;
+                });
+                setRxDeleteConfirmVisible(false);
+                setRxDeleteIndex(null);
+              }} style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.9 }]}>
+                <Text style={styles.deleteText}>Delete</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>

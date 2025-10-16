@@ -1,3 +1,4 @@
+import { createReport, uploadReportFormData, type OCRReport } from '@/lib/api';
 import { loadUser, saveUser, type Report, type UserData } from '@/lib/storage';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
@@ -13,25 +14,79 @@ export default function NewReport() {
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0,10));
   const [picked, setPicked] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  // OCR extracted (and editable) fields
+  type TestRow = { name: string; result: string; units?: string; reference?: string };
+  const [tests, setTests] = useState<TestRow[]>([]);
 
   const pickFile = async () => {
     setError(null);
     const res = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true, multiple: false });
     if (res.canceled) return;
-    setPicked(res.assets[0]);
-    if (!name) setName(res.assets[0].name ?? 'Lab Report');
+    const asset = res.assets[0];
+    setPicked(asset);
+    if (!name) setName(asset.name ?? 'Lab Report');
+
+    // Immediately attempt OCR upload and populate manual fields
+    try {
+      setUploading(true);
+      const form = new FormData();
+      if (Platform.OS === 'web') {
+        // @ts-ignore - on web, asset.file may exist when using DocumentPicker
+        form.append('file', asset.file ?? (asset as any));
+      } else {
+        form.append('file', {
+          // @ts-ignore - RN FormData file shape
+          uri: asset.uri,
+          name: asset.name || 'report',
+          type: asset.mimeType || 'application/octet-stream',
+        } as any);
+      }
+      const resp = await uploadReportFormData(form as any);
+      if (!resp.success || !resp.report) {
+        setError(resp.error || 'Failed to parse report');
+        return;
+      }
+  const r: OCRReport = resp.report;
+  if (r.date) setDate(r.date);
+  setTests((r.tests || []).map(t => ({ name: t.name || '', result: t.result || '', units: t.units || undefined, reference: t.reference || undefined })));
+    } catch (e) {
+      console.warn('Report OCR upload error', e);
+      setError('Failed to upload or parse report');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const save = async () => {
     setError(null);
     if (!picked) { setError('Please choose a PDF or image of the report.'); return; }
+    // Optionally, we can use the edited fields to build a summary
+    const summaryFromOCR = `Tests: ${tests.length}`;
     const u = await loadUser();
     const base = u ?? ({ name: 'User' } as UserData);
+    // Try saving to backend
+    try {
+      await createReport({
+        name: name || (picked.name ?? 'Lab Report'),
+        date: date || new Date().toISOString().slice(0,10),
+        summary: summaryFromOCR,
+        tests,
+        file_uri: picked.uri,
+        mime_type: picked.mimeType,
+        size_bytes: picked.size,
+      });
+    } catch (e) {
+      // Non-fatal: continue to local save
+      console.warn('Failed to save report to backend, will store locally', e);
+    }
+
     const report: Report = {
       id: `rep-${Date.now()}`,
       name: name || (picked.name ?? 'Lab Report'),
       date: date || new Date().toISOString().slice(0,10),
-      summary: 'Uploaded report',
+      summary: summaryFromOCR,
       file_uri: picked.uri,
       mime_type: picked.mimeType,
       size_bytes: picked.size,
@@ -55,7 +110,7 @@ export default function NewReport() {
           <TextInput value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" style={styles.input} />
 
           <Pressable onPress={pickFile} style={({ pressed }) => [styles.pickBtn, pressed && { opacity: 0.9 }]}>
-            <Text style={styles.pickBtnText}>{picked ? 'Change file' : t('common.chooseFile')}</Text>
+            <Text style={styles.pickBtnText}>{uploading ? 'Uploading...' : (picked ? 'Change file' : t('common.chooseFile'))}</Text>
           </Pressable>
           {picked ? (
             <View style={styles.fileRow}>
@@ -65,6 +120,55 @@ export default function NewReport() {
           ) : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
+
+        {/* Manual editing section populated from OCR */}
+        {picked ? (
+          <View style={styles.card}>
+            <Text style={styles.label}>Review & Edit Extracted Details</Text>
+            <Text style={[styles.hint, { marginBottom: 10 }]}>Fix any OCR mistakes below before saving.</Text>
+
+            <Text style={styles.label}>Tests</Text>
+            {tests.map((t, idx) => (
+              <View key={idx} style={{ marginBottom: 10 }}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Test name"
+                  value={t.name}
+                  onChangeText={(v) => setTests((arr) => arr.map((x, i) => i === idx ? { ...x, name: v } : x))}
+                />
+                <View style={{ height: 6 }} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Result"
+                  value={t.result}
+                  onChangeText={(v) => setTests((arr) => arr.map((x, i) => i === idx ? { ...x, result: v } : x))}
+                />
+                <View style={{ height: 6 }} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Units"
+                  value={t.units ?? ''}
+                  onChangeText={(v) => setTests((arr) => arr.map((x, i) => i === idx ? { ...x, units: v } : x))}
+                />
+                <View style={{ height: 6 }} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Reference interval"
+                  value={t.reference ?? ''}
+                  onChangeText={(v) => setTests((arr) => arr.map((x, i) => i === idx ? { ...x, reference: v } : x))}
+                />
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 }}>
+                  <Pressable onPress={() => setTests((arr) => arr.filter((_, i) => i !== idx))} style={({ pressed }) => [{ paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#FEE2E2', borderRadius: 8 }, pressed && { opacity: 0.9 }]}>
+                    <Text style={{ color: '#B91C1C', fontWeight: '700' }}>Remove</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+            <Pressable onPress={() => setTests((arr) => [...arr, { name: '', result: '', units: '', reference: '' }])} style={({ pressed }) => [{ paddingVertical: 12, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center' }, pressed && { opacity: 0.9 }]}>
+              <Text style={{ color: '#1D8CF8', fontWeight: '800' }}>+ Add another test</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.9 }]}>

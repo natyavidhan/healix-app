@@ -465,3 +465,145 @@ export async function uploadPrescriptionFormData(formData: any): Promise<{
     return { success: false, error: 'Network error' };
   }
 }
+
+export type OCRReport = {
+  date: string | null;
+  tests: Array<{
+    name: string;
+    result: string;
+    units?: string | null;
+    reference?: string | null;
+  }>;
+};
+
+/**
+ * Upload a lab report file (PDF/Image) using multipart/form-data to reports OCR endpoint.
+ */
+export async function uploadReportFormData(formData: any): Promise<{
+  success: boolean;
+  report?: OCRReport;
+  error?: string;
+}> {
+  try {
+    const token = await getAccessToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/reports/ocr`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (response.ok && data && (data.success === true)) {
+      return { success: true, report: data.report as OCRReport };
+    }
+    return { success: false, error: (data && data.message) || 'Report OCR upload failed' };
+  } catch (error) {
+    console.error('Report OCR upload error:', error);
+    return { success: false, error: 'Network error' };
+  }
+}
+
+/**
+ * Delete a prescription by id
+ */
+export async function deletePrescription(prescriptionId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const result = await apiRequest(`/prescriptions/${prescriptionId}`, {
+    method: 'DELETE',
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      error: backendResponse.message,
+    };
+  }
+
+  return { success: false, error: result.error || 'Failed to delete prescription' };
+}
+
+/**
+ * Delete a report by id
+ */
+export async function deleteReport(reportId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const result = await apiRequest(`/reports/${reportId}`, {
+    method: 'DELETE',
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      error: backendResponse.message,
+    };
+  }
+
+  return { success: false, error: result.error || 'Failed to delete report' };
+}
+
+// ---------------- Reports Create ----------------
+export type BackendReport = {
+  _id?: string;
+  user_id?: string;
+  name: string;
+  date: string;
+  summary: string;
+  tests?: Array<{ name: string; result: string; units?: string | null; reference?: string | null }>;
+  file_uri?: string;
+  mime_type?: string;
+  size_bytes?: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export async function createReport(report: Omit<BackendReport, '_id' | 'user_id'>): Promise<{
+  success: boolean;
+  report?: BackendReport;
+  error?: string;
+}> {
+  const result = await apiRequest('/reports', {
+    method: 'POST',
+    body: JSON.stringify(report),
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      report: backendResponse.report,
+      error: backendResponse.message,
+    };
+  }
+
+  return { success: false, error: result.error || 'Failed to create report' };
+}
+
+export async function getReports(): Promise<{
+  success: boolean;
+  reports?: BackendReport[];
+  error?: string;
+}> {
+  const result = await apiRequest('/reports', {
+    method: 'GET',
+  });
+
+  if (result.success && result.data) {
+    const backendResponse = result.data as any;
+    return {
+      success: backendResponse.success || result.success,
+      reports: backendResponse.reports || [],
+      error: backendResponse.message,
+    };
+  }
+
+  return { success: false, reports: [], error: result.error || 'Failed to get reports' };
+}
