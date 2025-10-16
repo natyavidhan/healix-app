@@ -416,3 +416,52 @@ export async function deleteMedication(medicationId: string): Promise<{
 
   return { success: false, error: result.error || 'Failed to delete medication' };
 }
+
+// ---------------- OCR Upload ----------------
+export type OCRExtracted = {
+  doctor: string | null;
+  date: string | null; // YYYY-MM-DD or raw
+  medicines: Array<{
+    name?: string;
+    strength?: string;
+    form?: string;
+    dosage?: string;
+    frequency_per_day?: number;
+    duration_days?: number | null;
+    instructions?: string;
+  }>;
+};
+
+/**
+ * Upload a prescription file (PDF/Image) using multipart/form-data to OCR endpoint.
+ * Accepts a FormData already constructed by the caller to support native/web differences.
+ */
+export async function uploadPrescriptionFormData(formData: any): Promise<{
+  success: boolean;
+  extracted?: OCRExtracted;
+  error?: string;
+}> {
+  try {
+    const token = await getAccessToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    // Do NOT set Content-Type so boundary is set automatically
+    const response = await fetch(`${API_BASE_URL}/prescriptions/ocr`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data && (data.success === true)) {
+      return { success: true, extracted: data.extracted as OCRExtracted };
+    }
+
+    return { success: false, error: (data && data.message) || 'OCR upload failed' };
+  } catch (error) {
+    console.error('OCR upload error:', error);
+    return { success: false, error: 'Network error' };
+  }
+}

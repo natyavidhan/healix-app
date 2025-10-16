@@ -1,5 +1,6 @@
-import { createMedication, createPrescription, getAccessToken } from '@/lib/api';
+import { createMedication, createPrescription, getAccessToken, uploadPrescriptionFormData, type OCRExtracted } from '@/lib/api';
 import { loadUser, saveUser, type Medication, type UserData } from '@/lib/storage';
+import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -47,6 +48,7 @@ export default function NewPrescription() {
     },
   ]);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     // ensure user exists locally for save (noop if exists)
@@ -71,8 +73,8 @@ export default function NewPrescription() {
   const onSave = async () => {
     setError(null);
     if (tab === 'upload') {
-      // Stub: in future integrate file picker and parsing
-      setError('Upload flow not implemented yet. Please use Manual tab.');
+      // If user is on upload tab and hasn't populated fields yet, prompt to switch to Manual after upload.
+      setError('Please use the Upload button above to pick and parse a file, then review in Manual tab.');
       return;
     }
     const cleaned = rows.map((r) => ({
@@ -193,9 +195,79 @@ export default function NewPrescription() {
         {tab === 'upload' ? (
           <View style={styles.uploadCard}>
             <Text style={styles.uploadTitle}>Upload prescription file</Text>
-            <Text style={styles.hint}>PDF/Image parsing coming soon.</Text>
-            <Pressable style={({ pressed }) => [styles.uploadBtn, pressed && { opacity: 0.9 }]} onPress={() => setError('Upload flow not implemented yet.') }>
-              <Text style={styles.uploadBtnText}>Pick File</Text>
+            <Text style={styles.hint}>Pick a PDF/Image to auto-fill the form. You can edit after parsing.</Text>
+            <Pressable
+              style={({ pressed }) => [styles.uploadBtn, pressed && { opacity: 0.9 }, uploading && { opacity: 0.7 }]}
+              disabled={uploading}
+              onPress={async () => {
+                setError(null);
+                try {
+                  const res = await DocumentPicker.getDocumentAsync({
+                    type: ['application/pdf', 'image/*'],
+                    multiple: false,
+                    copyToCacheDirectory: true,
+                  });
+                  if (res.canceled) return;
+                  const file = res.assets?.[0];
+                  if (!file) {
+                    setError('No file selected');
+                    return;
+                  }
+
+                  setUploading(true);
+                  // Build FormData - behavior differs web vs native
+                  const form = new FormData();
+                  // For web, file is a File; for native, need to pass uri + name + type
+                  if (Platform.OS === 'web') {
+                    // @ts-ignore - web File is fine
+                    form.append('file', file?.file ?? (file as any));
+                  } else {
+                    form.append('file', {
+                      // @ts-ignore - RN FormData file object
+                      uri: file.uri,
+                      name: file.name || 'upload',
+                      type: file.mimeType || 'application/octet-stream',
+                    } as any);
+                  }
+
+                  const resp = await uploadPrescriptionFormData(form as any);
+                  if (!resp.success || !resp.extracted) {
+                    setError(resp.error || 'Failed to parse file');
+                    return;
+                  }
+
+                  const extracted: OCRExtracted = resp.extracted;
+                  // Populate doctor/date
+                  if (extracted.doctor) setDoctor(extracted.doctor);
+                  if (extracted.date) setDate(extracted.date);
+
+                  // Map medicines to manual rows shape
+                  const mapped: ManualMed[] = (extracted.medicines || []).map((m) => ({
+                    name: (m.name || '').trim(),
+                    brand_name: '',
+                    form: (m.form as any) || 'tablet',
+                    strength: (m.strength || '').trim(),
+                    dosage: (m.dosage || '').trim(),
+                    frequency_per_day: (m.frequency_per_day != null ? String(m.frequency_per_day) : ''),
+                    times: '',
+                    duration_days: (m.duration_days != null ? String(m.duration_days) : ''),
+                    start_date: today,
+                    instructions: (m.instructions || '').trim(),
+                  }));
+
+                  if (mapped.length) setRows(mapped);
+
+                  // Switch to manual tab so user can edit
+                  setTab('manual');
+                } catch (e: any) {
+                  console.warn('Upload parse error', e);
+                  setError('Failed to upload or parse file');
+                } finally {
+                  setUploading(false);
+                }
+              }}
+            >
+              <Text style={styles.uploadBtnText}>{uploading ? 'Uploading...' : 'Pick File'}</Text>
             </Pressable>
           </View>
         ) : (
